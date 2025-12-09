@@ -1,23 +1,22 @@
-/* eslint-disable react-native/no-inline-styles */
 /**
  * App Root
  *
  * Main application entry point
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useTheme } from './src/hooks/useTheme';
-import RootNavigator from './src/navigation/RootNavigator';
+import { useTheme } from './hooks/useTheme';
+import RootNavigator from './navigation/RootNavigator';
 
 // Create Query Client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 2,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
     },
   },
@@ -25,10 +24,6 @@ const queryClient = new QueryClient({
 
 const App: React.FC = () => {
   const { colors, isDark } = useTheme();
-
-  useEffect(() => {
-    // Any app initialization here
-  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
