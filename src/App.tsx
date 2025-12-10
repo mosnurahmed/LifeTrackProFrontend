@@ -1,26 +1,14 @@
-/**
- * App Root
- *
- * Main application entry point
- */
-
 import React from 'react';
 import { StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import Toast from 'react-native-toast-message';
 import { useTheme } from './hooks/useTheme';
 import RootNavigator from './navigation/RootNavigator';
+import { queryClient } from './config/queryClient';
 
-// Create Query Client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 2,
-      staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+// Import interceptors to initialize
+import './api/interceptors';
 
 const App: React.FC = () => {
   const { colors, isDark } = useTheme();
@@ -33,6 +21,9 @@ const App: React.FC = () => {
           backgroundColor={colors.background}
         />
         <RootNavigator />
+
+        {/* Toast Messages */}
+        <Toast />
       </QueryClientProvider>
     </GestureHandlerRootView>
   );
