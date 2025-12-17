@@ -1,7 +1,5 @@
 /**
- * Login Screen
- *
- * User authentication
+ * Login Screen - Fixed Token Extraction
  */
 
 import React, { useState } from 'react';
@@ -15,32 +13,67 @@ import {
   ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useForm, Controller } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
 import { useTheme } from '../../../hooks/useTheme';
-import { useAuthStore } from '../../../store';
-// import { useTheme } from '@hooks/useTheme';
-// import { useAuthStore } from '@store/authStore';
+import { useAuthStore } from '../../../store/authStore';
+import { Button, Input } from '../../../components/common';
+import { loginSchema } from '../../../utils/validation/schemas';
+import client from '../../../api/client';
+import Toast from 'react-native-toast-message';
 
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, textStyles, spacing, borderRadius } = useTheme();
   const { setAuth } = useAuthStore();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: yupResolver(loginSchema), // ✅ Changed from zodResolver
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
 
-  const handleLogin = () => {
-    // TODO: Implement actual login
-    // Mock login for now
-    setAuth(
-      {
-        id: '1',
-        name: 'John Doe',
-        email: 'john@example.com',
-        currency: 'BDT',
-      },
-      'mock-access-token',
-      'mock-refresh-token',
-    );
+  const onSubmit = async (data: any) => {
+    try {
+      setIsLoading(true);
+
+      const response = await client.post('/auth/login', data);
+
+      console.log('📦 Full Response:', response.data);
+
+      // ✅ CORRECT: Extract user and tokens
+      const { user, tokens } = response.data.data;
+      const { accessToken, refreshToken } = tokens;
+
+      console.log('👤 User:', user);
+      console.log('🔑 Token Preview:', tokens);
+
+      // Save to store
+      setAuth(user, accessToken, refreshToken);
+
+      Toast.show({
+        type: 'success',
+        text1: 'Welcome back!',
+        text2: `Hi ${user.name}`,
+      });
+    } catch (error: any) {
+      console.log('❌ Login Error:', error.response?.data || error.message);
+
+      Toast.show({
+        type: 'error',
+        text1: 'Login Failed',
+        text2: error.response?.data?.error || 'Invalid credentials',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const styles = createStyles(colors, textStyles, spacing, borderRadius);
@@ -54,45 +87,53 @@ const LoginScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Logo */}
         <View style={styles.logoContainer}>
           <Text style={styles.logo}>🍃</Text>
           <Text style={styles.title}>Welcome Back!</Text>
           <Text style={styles.subtitle}>Login to continue</Text>
         </View>
 
-        {/* Form */}
         <View style={styles.form}>
-          {/* Email Input - Placeholder */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.input}>
-              <Text style={styles.inputPlaceholder}>
-                Email input will be here
-              </Text>
-            </View>
-          </View>
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, value } }) => (
+              <Input
+                label="Email"
+                placeholder="Enter your email"
+                type="email"
+                leftIcon="mail-outline"
+                value={value}
+                onChangeText={onChange}
+                error={errors.email?.message}
+              />
+            )}
+          />
 
-          {/* Password Input - Placeholder */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.input}>
-              <Text style={styles.inputPlaceholder}>
-                Password input will be here
-              </Text>
-            </View>
-          </View>
+          <Controller
+            control={control}
+            name="password"
+            render={({ field: { onChange, value } }) => (
+              <Input
+                label="Password"
+                placeholder="Enter your password"
+                type="password"
+                leftIcon="lock-closed-outline"
+                value={value}
+                onChangeText={onChange}
+                error={errors.password?.message}
+              />
+            )}
+          />
 
-          {/* Login Button - Placeholder */}
-          <TouchableOpacity
-            style={styles.button}
-            onPress={handleLogin}
-            activeOpacity={0.8}
+          <Button
+            onPress={handleSubmit(onSubmit)}
+            loading={isLoading}
+            fullWidth
           >
-            <Text style={styles.buttonText}>Login</Text>
-          </TouchableOpacity>
+            Login
+          </Button>
 
-          {/* Register Link */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don't have an account? </Text>
             <TouchableOpacity
@@ -143,37 +184,6 @@ const createStyles = (
     },
     form: {
       flex: 1,
-    },
-    inputContainer: {
-      marginBottom: spacing.lg,
-    },
-    label: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      marginBottom: spacing.sm,
-    },
-    input: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: borderRadius.md,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.md,
-      backgroundColor: colors.surface,
-    },
-    inputPlaceholder: {
-      ...textStyles.body,
-      color: colors.text.tertiary,
-    },
-    button: {
-      backgroundColor: colors.primary,
-      borderRadius: borderRadius.md,
-      paddingVertical: spacing.md,
-      alignItems: 'center',
-      marginTop: spacing.lg,
-    },
-    buttonText: {
-      ...textStyles.button,
-      color: colors.text.inverse,
     },
     footer: {
       flexDirection: 'row',

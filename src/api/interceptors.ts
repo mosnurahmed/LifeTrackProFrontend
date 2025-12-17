@@ -12,6 +12,9 @@ import client from './client';
 import { useAuthStore } from '../store/authStore';
 import Toast from 'react-native-toast-message';
 
+// Track if we're already handling a 401
+let isRefreshing = false;
+
 // Request Interceptor
 client.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
@@ -59,7 +62,8 @@ client.interceptors.response.use(
       console.log('❌ API Error:', {
         url: error.config?.url,
         status: error.response?.status,
-        message: error.message
+        message: error.message,
+        data: error.response?.data
       });
     }
     
@@ -71,13 +75,51 @@ client.interceptors.response.use(
       
       switch (status) {
         case 401:
-          // Unauthorized - logout user
-          Toast.show({
-            type: 'error',
-            text1: 'Session Expired',
-            text2: 'Please login again'
-          });
-          useAuthStore.getState().clearAuth();
+          // ✅ FIXED: Only logout if not already refreshing and not on login endpoint
+          const isLoginRequest = error.config?.url?.includes('/auth/login');
+          
+          if (!isLoginRequest && !isRefreshing) {
+            isRefreshing = true;
+            
+            // Try to refresh token
+            const { refreshToken, clearAuth } = useAuthStore.getState();
+            
+            if (refreshToken) {
+              try {
+                // TODO: Implement token refresh
+                // const response = await client.post('/auth/refresh', { refreshToken });
+                // const { accessToken: newAccessToken } = response.data.data;
+                // Update token in store
+                // Retry original request
+                
+                // For now, just logout
+                clearAuth();
+                Toast.show({
+                  type: 'error',
+                  text1: 'Session Expired',
+                  text2: 'Please login again'
+                });
+              } catch (refreshError) {
+       
+                clearAuth();
+                Toast.show({
+                  type: 'error',
+                  text1: 'Session Expired',
+                  text2: 'Please login again'
+                });
+              } finally {
+                isRefreshing = false;
+              }
+            } else {
+              clearAuth();
+              Toast.show({
+                type: 'error',
+                text1: 'Session Expired',
+                text2: 'Please login again'
+              });
+              isRefreshing = false;
+            }
+          }
           break;
           
         case 403:
@@ -90,12 +132,8 @@ client.interceptors.response.use(
           break;
           
         case 404:
-          // Not found
-          Toast.show({
-            type: 'error',
-            text1: 'Not Found',
-            text2: message
-          });
+          // Not found - Don't show toast for 404s
+          // They might be intentional (checking if resource exists)
           break;
           
         case 422:
@@ -117,11 +155,14 @@ client.interceptors.response.use(
           break;
           
         default:
-          Toast.show({
-            type: 'error',
-            text1: 'Error',
-            text2: message
-          });
+          // Other errors - only show if not network related
+          if (status >= 400 && status < 500) {
+            Toast.show({
+              type: 'error',
+              text1: 'Error',
+              text2: message
+            });
+          }
       }
     } else if (error.request) {
       // Request made but no response

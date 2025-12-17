@@ -1,10 +1,8 @@
 /**
- * Register Screen
- *
- * New user registration
+ * Register Screen - Complete with Validation
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -15,12 +13,63 @@ import {
   ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useForm, Controller } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
 import { useTheme } from '../../../hooks/useTheme';
-// import { useTheme } from '@hooks/useTheme';
+import { Button, Input } from '../../../components/common';
+import { registerSchema } from '../../../utils/validation/schemas';
+import client from '../../../api/client';
+import Toast from 'react-native-toast-message';
 
 const RegisterScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, textStyles, spacing, borderRadius } = useTheme();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: yupResolver(registerSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      password: '',
+    },
+  });
+
+  const onSubmit = async (data: any) => {
+    try {
+      setIsLoading(true);
+
+      const response = await client.post('/auth/register', data);
+
+      console.log('📦 Registration Response:', response.data);
+
+      Toast.show({
+        type: 'success',
+        text1: 'Success!',
+        text2: 'Account created successfully. Please login.',
+      });
+
+      // Navigate to login
+      navigation.navigate('Login' as never);
+    } catch (error: any) {
+      console.log(
+        '❌ Registration Error:',
+        error.response?.data || error.message,
+      );
+
+      Toast.show({
+        type: 'error',
+        text1: 'Registration Failed',
+        text2: error.response?.data?.error || 'Could not create account',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const styles = createStyles(colors, textStyles, spacing, borderRadius);
 
@@ -42,44 +91,70 @@ const RegisterScreen: React.FC = () => {
 
         {/* Form */}
         <View style={styles.form}>
-          {/* Name Input - Placeholder */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Full Name</Text>
-            <View style={styles.input}>
-              <Text style={styles.inputPlaceholder}>
-                Name input will be here
-              </Text>
-            </View>
+          {/* Name Input */}
+          <Controller
+            control={control}
+            name="name"
+            render={({ field: { onChange, value } }) => (
+              <Input
+                label="Full Name"
+                placeholder="Enter your full name"
+                leftIcon="person-outline"
+                value={value}
+                onChangeText={onChange}
+                error={errors.name?.message}
+              />
+            )}
+          />
+
+          {/* Email Input */}
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, value } }) => (
+              <Input
+                label="Email"
+                placeholder="Enter your email"
+                type="email"
+                leftIcon="mail-outline"
+                value={value}
+                onChangeText={onChange}
+                error={errors.email?.message}
+              />
+            )}
+          />
+
+          {/* Password Input */}
+          <Controller
+            control={control}
+            name="password"
+            render={({ field: { onChange, value } }) => (
+              <Input
+                label="Password"
+                placeholder="Enter your password"
+                type="password"
+                leftIcon="lock-closed-outline"
+                value={value}
+                onChangeText={onChange}
+                error={errors.password?.message}
+              />
+            )}
+          />
+
+          {/* Password Requirements */}
+          <View style={styles.passwordHints}>
+            <Text style={styles.passwordHintText}>• At least 6 characters</Text>
           </View>
 
-          {/* Email Input - Placeholder */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.input}>
-              <Text style={styles.inputPlaceholder}>
-                Email input will be here
-              </Text>
-            </View>
-          </View>
-
-          {/* Password Input - Placeholder */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.input}>
-              <Text style={styles.inputPlaceholder}>
-                Password input will be here
-              </Text>
-            </View>
-          </View>
-
-          {/* Register Button - Placeholder */}
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => {}}
-            activeOpacity={0.8}
+          {/* Register Button */}
+          <Button
+            onPress={handleSubmit(onSubmit)}
+            loading={isLoading}
+            fullWidth
+            style={{ marginTop: spacing.lg }}
           >
-            <Text style={styles.buttonText}>Create Account</Text>
-          </TouchableOpacity>
+            Create Account
+          </Button>
 
           {/* Login Link */}
           <View style={styles.footer}>
@@ -131,36 +206,14 @@ const createStyles = (
     form: {
       flex: 1,
     },
-    inputContainer: {
-      marginBottom: spacing.lg,
+    passwordHints: {
+      marginTop: spacing.xs,
+      marginBottom: spacing.md,
     },
-    label: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      marginBottom: spacing.sm,
-    },
-    input: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: borderRadius.md,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.md,
-      backgroundColor: colors.surface,
-    },
-    inputPlaceholder: {
-      ...textStyles.body,
-      color: colors.text.tertiary,
-    },
-    button: {
-      backgroundColor: colors.primary,
-      borderRadius: borderRadius.md,
-      paddingVertical: spacing.md,
-      alignItems: 'center',
-      marginTop: spacing.lg,
-    },
-    buttonText: {
-      ...textStyles.button,
-      color: colors.text.inverse,
+    passwordHintText: {
+      ...textStyles.caption,
+      color: colors.text.secondary,
+      lineHeight: 20,
     },
     footer: {
       flexDirection: 'row',

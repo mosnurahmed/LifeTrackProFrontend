@@ -29,15 +29,31 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
 
       setAuth: (user, accessToken, refreshToken) => {
+        console.log('✅ setAuth called with:', {
+          userName: user.name,
+          hasToken: !!accessToken,
+          tokenLength: accessToken?.length
+        });
+        
         set({
           isAuthenticated: true,
           user,
           accessToken,
           refreshToken
         });
+        
+        // Verify immediately
+        const state = get();
+        console.log('✅ State after setAuth:', {
+          isAuthenticated: state.isAuthenticated,
+          hasUser: !!state.user,
+          hasAccessToken: !!state.accessToken,
+          tokenPreview: state.accessToken?.substring(0, 20)
+        });
       },
 
       clearAuth: () => {
+        console.log('🚪 clearAuth called');
         set({
           isAuthenticated: false,
           user: null,
@@ -57,7 +73,14 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      storage: createJSONStorage(() => AsyncStorage)
+      storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        console.log('💾 Rehydrated state:', {
+          isAuthenticated: state?.isAuthenticated,
+          hasUser: !!state?.user,
+          hasToken: !!state?.accessToken
+        });
+      }
     }
   )
 );
