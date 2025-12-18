@@ -11,7 +11,7 @@ import BottomTabNavigator from './BottomTabNavigator';
 // import ChatScreen from '../features/chat/screens/ChatScreen';
 // import SettingsScreen from '../features/profile/screens/SettingsScreen';
 import BudgetScreen from '../features/budget/screens/BudgetScreen';
-import SavingsScreen from '../features/savings/screens/SavingsScreen';
+import SavingsScreen from '../features/savings/screens/SavingsGoalsScreen';
 import TasksScreen from '../features/tasks/screens/TasksScreen';
 import NotesScreen from '../features/notes/screens/NotesScreen';
 import ChatScreen from '../features/chat/screens/ChatScreen';

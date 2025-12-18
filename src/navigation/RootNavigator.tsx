@@ -13,6 +13,11 @@ import BazarListDetailsScreen from '../features/bazar/screens/BazarListDetailsSc
 import AddBazarItemModal from '../features/bazar/screens/AddBazarItemModal';
 import BazarStatsScreen from '../features/bazar/screens/BazarStatsScreen';
 import ExpenseStatsScreen from '../features/expenses/screens/ExpenseStatsScreen';
+import SavingsGoalsStatsScreen from '../features/savings/screens/SavingsGoalsStatsScreen';
+import {
+  AddSavingsGoalModal,
+  SavingsGoalDetailsScreen,
+} from '../features/savings/screens';
 
 const Stack = createNativeStackNavigator();
 
@@ -84,6 +89,23 @@ const RootNavigator: React.FC = () => {
               <Stack.Screen
                 name="ExpenseStats"
                 component={ExpenseStatsScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="AddSavingsGoal"
+                component={AddSavingsGoalModal}
+                options={{ headerShown: false }}
+              />
+
+              <Stack.Screen
+                name="SavingsGoalDetails"
+                component={SavingsGoalDetailsScreen}
+                options={{ headerShown: false }}
+              />
+
+              <Stack.Screen
+                name="SavingsGoalsStats"
+                component={SavingsGoalsStatsScreen}
                 options={{ headerShown: false }}
               />
             </Stack.Group>

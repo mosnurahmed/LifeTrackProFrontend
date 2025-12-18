@@ -29,11 +29,13 @@ import { useExpenseStats } from '../../../hooks/api/useExpenses';
 import { useAuthStore } from '../../../store/authStore';
 import { Card, Spinner, ErrorState } from '../../../components/common';
 import { BudgetWidget, BudgetAlertCard } from '../../budget/components';
+// import { SavingsGoalsWidget } from '../../savingsGoals/components';
 import {
   formatCurrency,
   formatRelativeTime,
   formatPercentage,
 } from '../../../utils/formatters';
+import { SavingsGoalsWidget } from '../../savings/components';
 
 const { width } = Dimensions.get('window');
 
@@ -208,6 +210,7 @@ const DashboardScreen: React.FC = () => {
 
         <BudgetAlertCard />
         <BudgetWidget />
+        <SavingsGoalsWidget />
 
         {/* Stats Overview */}
         <View style={styles.statsContainer}>

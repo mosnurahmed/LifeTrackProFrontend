@@ -121,16 +121,31 @@ export const noteSchema = yup.object({
 });
 
 // Savings goal schema
+
 export const savingsGoalSchema = yup.object({
-  title: yup.string().required('Title is required'),
-  description: yup.string().optional(),
+  title: yup
+    .string()
+    .required('Title is required')
+    .min(2, 'Title must be at least 2 characters')
+    .max(100, 'Title cannot exceed 100 characters'),
+  description: yup.string().max(500, 'Description cannot exceed 500 characters'),
   targetAmount: yup
     .number()
+    .required('Target amount is required')
+    .positive('Target amount must be positive')
+    .min(1, 'Target amount must be at least 1'),
+  targetDate: yup.date().nullable().optional(),
+  icon: yup.string().required('Icon is required'),
+  color: yup.string().required('Color is required'),
+  priority: yup.string().oneOf(['high', 'medium', 'low']).optional(),
+});
+
+export const contributionSchema = yup.object({
+  amount: yup
+    .number()
+    .required('Amount is required')
     .positive('Amount must be positive')
-    .required('Amount is required'),
-  targetDate: yup.date().optional(),
-  priority: yup
-    .string()
-    .oneOf(['high', 'medium', 'low'])
-    .required('Priority is required')
+    .min(0.01, 'Amount must be greater than 0'),
+  date: yup.date().optional(),
+  note: yup.string().max(200, 'Note cannot exceed 200 characters').optional(),
 });
