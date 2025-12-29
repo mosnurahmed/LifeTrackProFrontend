@@ -14,6 +14,12 @@ import AddBazarItemModal from '../features/bazar/screens/AddBazarItemModal';
 import BazarStatsScreen from '../features/bazar/screens/BazarStatsScreen';
 import ExpenseStatsScreen from '../features/expenses/screens/ExpenseStatsScreen';
 import SavingsGoalsStatsScreen from '../features/savings/screens/SavingsGoalsStatsScreen';
+import AddIncomeModal from '../features/income/screens/AddIncomeModal';
+import IncomeStatsScreen from '../features/income/screens/IncomeStatsScreen';
+import AddTaskModal from '../features/tasks/screens/AddTaskModal';
+import TaskDetailsScreen from '../features/tasks/screens/TaskDetailsScreen';
+import TaskStatsScreen from '../features/tasks/screens/TaskStatsScreen';
+import IncomeDetailsScreen from '../features/income/screens/IncomeDetailsScreen';
 import {
   AddSavingsGoalModal,
   SavingsGoalDetailsScreen,
@@ -106,6 +112,38 @@ const RootNavigator: React.FC = () => {
               <Stack.Screen
                 name="SavingsGoalsStats"
                 component={SavingsGoalsStatsScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="AddIncome"
+                component={AddIncomeModal}
+                options={{ headerShown: false }}
+              />
+
+              <Stack.Screen
+                name="IncomeStats"
+                component={IncomeStatsScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="AddTask"
+                component={AddTaskModal}
+                options={{ headerShown: false }}
+              />
+
+              <Stack.Screen
+                name="TaskDetails"
+                component={TaskDetailsScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="TaskStats"
+                component={TaskStatsScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="IncomeDetails"
+                component={IncomeDetailsScreen}
                 options={{ headerShown: false }}
               />
             </Stack.Group>

@@ -1,5 +1,5 @@
 /**
- * Category API Endpoints
+ * Category API Endpoints - Updated for Unified Category
  */
 
 import client from '../client';
@@ -10,8 +10,9 @@ export interface Category {
   name: string;
   icon: string;
   color: string;
-
+  type: 'expense' | 'income' | 'both'; // ✅ NEW
   monthlyBudget?: number;
+  monthlyIncome?: number; // ✅ NEW
   order: number;
   isDefault: boolean;
   createdAt: string;
@@ -22,13 +23,16 @@ export interface CreateCategoryData {
   name: string;
   icon: string;
   color: string;
-  type: 'income' | 'expense';
+  type: 'expense' | 'income' | 'both'; // ✅ Required
   monthlyBudget?: number;
+  monthlyIncome?: number; // ✅ NEW
 }
 
 export const categoryApi = {
-  getAll: async () => {
-    const response = await client.get('/categories');
+  // ✅ Updated: Can filter by type
+  getAll: async (type?: 'expense' | 'income' | 'both') => {
+    const params = type ? { type } : {};
+    const response = await client.get('/categories', { params });
     return response.data;
   },
 
@@ -47,23 +51,25 @@ export const categoryApi = {
     return response.data;
   },
 
-  delete: async (id: string, confirm: boolean = true) => {
-    const response = await client.delete(`/categories/${id}?confirm=${confirm}`);
+  delete: async (id: string, confirmed: boolean = false) => {
+    const response = await client.delete(`/categories/${id}?confirmed=${confirmed}`);
     return response.data;
   },
 
-  reorder: async (categoryIds: string[]) => {
-    const response = await client.put('/categories/reorder', { categoryIds });
+  checkDeletion: async (id: string) => {
+    const response = await client.get(`/categories/${id}/delete-check`);
+    return response.data;
+  },
+
+  reorder: async (categoryOrders: Array<{ id: string; order: number }>) => {
+    const response = await client.put('/categories/reorder', { categoryOrders });
     return response.data;
   },
 
   createDefaults: async () => {
-    const response = await client.post('/categories/default');
+    const response = await client.post('/categories/defaults');
     return response.data;
   },
-
-  getStats: async (id: string) => {
-    const response = await client.get(`/categories/${id}/stats`);
-    return response.data;
-  }
 };
+
+export default categoryApi;

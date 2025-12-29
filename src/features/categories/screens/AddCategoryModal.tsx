@@ -1,5 +1,5 @@
 /**
- * Add/Edit Category Modal - Fixed (No Type Field)
+ * Add/Edit Category Modal - With Type Selection
  */
 
 import React, { useEffect, useState } from 'react';
@@ -55,6 +55,9 @@ const CATEGORY_ICONS = [
   'stats-chart',
   'hammer',
   'color-palette',
+  'wallet',
+  'trending-up',
+  'business',
 ];
 
 const CATEGORY_COLORS = [
@@ -80,11 +83,16 @@ const AddCategoryModal: React.FC = () => {
   const route = useRoute();
   const { colors, textStyles, spacing, borderRadius } = useTheme();
 
-  const { mode, categoryId } = (route.params as any) || { mode: 'create' };
+  const { mode, categoryId, defaultType } = (route.params as any) || {
+    mode: 'create',
+    defaultType: 'expense', // ✅ Default to expense
+  };
   const isEditMode = mode === 'edit';
 
-  const { data: category, isLoading: categoryLoading } =
+  const { data: categoryData, isLoading: categoryLoading } =
     useCategory(categoryId);
+  const category = categoryData?.data;
+
   const createMutation = useCreateCategory();
   const updateMutation = useUpdateCategory();
 
@@ -100,19 +108,24 @@ const AddCategoryModal: React.FC = () => {
       name: '',
       icon: 'cash',
       color: '#10B981',
+      type: defaultType || 'expense', // ✅ Use defaultType from route params
       monthlyBudget: undefined,
+      monthlyIncome: undefined, // ✅ NEW
     },
   });
 
   const selectedIcon = watch('icon');
   const selectedColor = watch('color');
+  const selectedType = watch('type'); // ✅ Watch type
 
   useEffect(() => {
     if (isEditMode && category) {
       setValue('name', category.name);
       setValue('icon', category.icon);
       setValue('color', category.color);
+      setValue('type', category.type); // ✅ Set type
       setValue('monthlyBudget', category.monthlyBudget);
+      setValue('monthlyIncome', category.monthlyIncome); // ✅ Set monthlyIncome
     }
   }, [category, isEditMode]);
 
@@ -122,7 +135,18 @@ const AddCategoryModal: React.FC = () => {
       monthlyBudget: data.monthlyBudget
         ? parseFloat(data.monthlyBudget)
         : undefined,
+      monthlyIncome: data.monthlyIncome
+        ? parseFloat(data.monthlyIncome)
+        : undefined, // ✅ Format income
     };
+
+    // ✅ Remove fields based on type
+    if (formattedData.type === 'expense') {
+      delete formattedData.monthlyIncome;
+    }
+    if (formattedData.type === 'income') {
+      delete formattedData.monthlyBudget;
+    }
 
     if (isEditMode) {
       await updateMutation.mutateAsync({ id: categoryId, data: formattedData });
@@ -156,6 +180,114 @@ const AddCategoryModal: React.FC = () => {
       </View>
 
       <ScrollView style={styles.content}>
+        {/* ✅ Type Selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Category Type *</Text>
+          <Controller
+            control={control}
+            name="type"
+            render={({ field: { onChange, value } }) => (
+              <View style={styles.typeButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.typeButton,
+                    value === 'expense' && styles.typeButtonActive,
+                    { borderColor: colors.danger },
+                  ]}
+                  onPress={() => onChange('expense')}
+                  activeOpacity={0.7}
+                >
+                  <Icon
+                    name="trending-down"
+                    size={24}
+                    color={
+                      value === 'expense'
+                        ? colors.danger
+                        : colors.text.secondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.typeButtonText,
+                      value === 'expense' && {
+                        color: colors.danger,
+                        fontWeight: '700',
+                      },
+                    ]}
+                  >
+                    Expense
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.typeButton,
+                    value === 'income' && styles.typeButtonActive,
+                    { borderColor: colors.success },
+                  ]}
+                  onPress={() => onChange('income')}
+                  activeOpacity={0.7}
+                >
+                  <Icon
+                    name="trending-up"
+                    size={24}
+                    color={
+                      value === 'income'
+                        ? colors.success
+                        : colors.text.secondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.typeButtonText,
+                      value === 'income' && {
+                        color: colors.success,
+                        fontWeight: '700',
+                      },
+                    ]}
+                  >
+                    Income
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.typeButton,
+                    value === 'both' && styles.typeButtonActive,
+                    { borderColor: colors.info },
+                  ]}
+                  onPress={() => onChange('both')}
+                  activeOpacity={0.7}
+                >
+                  <Icon
+                    name="swap-horizontal"
+                    size={24}
+                    color={
+                      value === 'both' ? colors.info : colors.text.secondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.typeButtonText,
+                      value === 'both' && {
+                        color: colors.info,
+                        fontWeight: '700',
+                      },
+                    ]}
+                  >
+                    Both
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          />
+          {errors.type && (
+            <Text style={styles.errorText}>
+              {errors.type.message as string}
+            </Text>
+          )}
+        </View>
+
         {/* Name */}
         <Controller
           control={control}
@@ -163,7 +295,7 @@ const AddCategoryModal: React.FC = () => {
           render={({ field: { onChange, value } }) => (
             <Input
               label="Category Name *"
-              placeholder="e.g., Food, Transport, Shopping"
+              placeholder="e.g., Food, Salary, Transport"
               value={value}
               onChangeText={onChange}
               error={errors.name?.message}
@@ -248,26 +380,77 @@ const AddCategoryModal: React.FC = () => {
               <Icon name={selectedIcon} size={40} color={selectedColor} />
             </View>
             <Text style={styles.previewText}>Preview</Text>
+            <View
+              style={[
+                styles.previewTypeBadge,
+                {
+                  backgroundColor:
+                    selectedType === 'income'
+                      ? `${colors.success}15`
+                      : selectedType === 'both'
+                      ? `${colors.info}15`
+                      : `${colors.danger}15`,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.previewTypeBadgeText,
+                  {
+                    color:
+                      selectedType === 'income'
+                        ? colors.success
+                        : selectedType === 'both'
+                        ? colors.info
+                        : colors.danger,
+                  },
+                ]}
+              >
+                {selectedType}
+              </Text>
+            </View>
           </View>
         </Card>
 
-        {/* Monthly Budget (Optional) */}
-        <Controller
-          control={control}
-          name="monthlyBudget"
-          render={({ field: { onChange, value } }) => (
-            <Input
-              label="Monthly Budget (Optional)"
-              placeholder="0"
-              type="number"
-              value={value?.toString()}
-              onChangeText={text =>
-                onChange(text ? parseFloat(text) : undefined)
-              }
-              leftIcon="cash-outline"
-            />
-          )}
-        />
+        {/* ✅ Conditional Fields Based on Type */}
+        {(selectedType === 'expense' || selectedType === 'both') && (
+          <Controller
+            control={control}
+            name="monthlyBudget"
+            render={({ field: { onChange, value } }) => (
+              <Input
+                label="Monthly Budget (Optional)"
+                placeholder="0"
+                type="number"
+                value={value?.toString()}
+                onChangeText={text =>
+                  onChange(text ? parseFloat(text) : undefined)
+                }
+                leftIcon="cash-outline"
+              />
+            )}
+          />
+        )}
+
+        {/* ✅ NEW: Monthly Income Target */}
+        {(selectedType === 'income' || selectedType === 'both') && (
+          <Controller
+            control={control}
+            name="monthlyIncome"
+            render={({ field: { onChange, value } }) => (
+              <Input
+                label="Monthly Income Target (Optional)"
+                placeholder="0"
+                type="number"
+                value={value?.toString()}
+                onChangeText={text =>
+                  onChange(text ? parseFloat(text) : undefined)
+                }
+                leftIcon="trending-up-outline"
+              />
+            )}
+          />
+        )}
       </ScrollView>
 
       {/* Footer */}
@@ -328,6 +511,30 @@ const createStyles = (
       color: colors.text.primary,
       marginBottom: spacing.md,
     },
+    // ✅ Type Selection Styles
+    typeButtons: {
+      flexDirection: 'row',
+      gap: spacing.md,
+    },
+    typeButton: {
+      flex: 1,
+      flexDirection: 'column',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      borderWidth: 2,
+      borderColor: colors.border,
+      borderRadius: borderRadius.md,
+      backgroundColor: colors.surface,
+      gap: spacing.xs,
+    },
+    typeButtonActive: {
+      borderWidth: 2,
+    },
+    typeButtonText: {
+      ...textStyles.caption,
+      color: colors.text.secondary,
+      fontWeight: '600',
+    },
     iconGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -378,6 +585,18 @@ const createStyles = (
     previewText: {
       ...textStyles.caption,
       color: colors.text.secondary,
+      marginBottom: spacing.sm,
+    },
+    previewTypeBadge: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.full,
+    },
+    previewTypeBadgeText: {
+      ...textStyles.caption,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      fontSize: 10,
     },
     footer: {
       flexDirection: 'row',
@@ -385,6 +604,11 @@ const createStyles = (
       paddingVertical: spacing.md,
       borderTopWidth: 1,
       borderTopColor: colors.border,
+    },
+    errorText: {
+      ...textStyles.caption,
+      color: colors.danger,
+      marginTop: spacing.xs,
     },
   });
 

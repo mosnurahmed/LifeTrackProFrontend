@@ -80,16 +80,28 @@ export const bazarItemSchema = yup.object({
 });
 
 // Category schema 
+
 export const categorySchema = yup.object({
   name: yup
     .string()
-    .min(1, 'Name is required')
+    .min(2, 'Name must be at least 2 characters')
     .max(50, 'Name must be less than 50 characters')
     .required('Name is required'),
+  
   icon: yup.string().required('Icon is required'),
+  
   color: yup.string().required('Color is required'),
-
-  monthlyBudget: yup.number().positive().optional()
+  
+  // ✅ NEW: Category type
+  type: yup
+    .string()
+    .oneOf(['expense', 'income', 'both'], 'Invalid type')
+    .required('Type is required'),
+  
+  monthlyBudget: yup.number().positive().optional(),
+  
+  // ✅ NEW: Monthly income target
+  monthlyIncome: yup.number().positive().optional(),
 });
 
 // Budget update schema
@@ -101,16 +113,16 @@ export const updateBudgetSchema = yup.object({
     .optional(),
 });
 
-// Task schema
-export const taskSchema = yup.object({
-  title: yup.string().required('Title is required'),
-  description: yup.string().optional(),
-  priority: yup
-    .string()
-    .oneOf(['urgent', 'high', 'medium', 'low'])
-    .required('Priority is required'),
-  dueDate: yup.date().optional()
-});
+// // Task schema
+// export const taskSchema = yup.object({
+//   title: yup.string().required('Title is required'),
+//   description: yup.string().optional(),
+//   priority: yup
+//     .string()
+//     .oneOf(['urgent', 'high', 'medium', 'low'])
+//     .required('Priority is required'),
+//   dueDate: yup.date().optional()
+// });
 
 // Note schema
 export const noteSchema = yup.object({
@@ -140,6 +152,7 @@ export const savingsGoalSchema = yup.object({
   priority: yup.string().oneOf(['high', 'medium', 'low']).optional(),
 });
 
+
 export const contributionSchema = yup.object({
   amount: yup
     .number()
@@ -148,4 +161,58 @@ export const contributionSchema = yup.object({
     .min(0.01, 'Amount must be greater than 0'),
   date: yup.date().optional(),
   note: yup.string().max(200, 'Note cannot exceed 200 characters').optional(),
+});
+
+
+// Add to existing schemas
+
+export const incomeSchema = yup.object({
+  categoryId: yup.string().required('Category is required'),
+  source: yup
+    .string()
+    .required('Source is required')
+    .min(2, 'Source must be at least 2 characters')
+    .max(100, 'Source cannot exceed 100 characters'),
+  amount: yup
+    .number()
+    .required('Amount is required')
+    .positive('Amount must be positive')
+    .min(0.01, 'Amount must be greater than 0'),
+  date: yup.date().required('Date is required'),
+  description: yup.string().max(500, 'Description cannot exceed 500 characters'),
+  paymentMethod: yup
+    .string()
+    .oneOf(['cash', 'card', 'mobile_banking', 'bank_transfer'])
+    .optional(),
+  tags: yup.array().of(yup.string()).optional(),
+  isRecurring: yup.boolean().optional(),
+});
+
+export const incomeCategorySchema = yup.object({
+  name: yup
+    .string()
+    .required('Name is required')
+    .min(2, 'Name must be at least 2 characters')
+    .max(50, 'Name cannot exceed 50 characters'),
+  icon: yup.string().required('Icon is required'),
+  color: yup.string().required('Color is required'),
+  description: yup.string().max(200, 'Description cannot exceed 200 characters'),
+});
+
+
+// Task schema
+export const taskSchema = yup.object({
+  title: yup
+    .string()
+    .required('Title is required')
+    .min(2, 'Title must be at least 2 characters')
+    .max(200, 'Title cannot exceed 200 characters'),
+  description: yup.string().max(1000, 'Description cannot exceed 1000 characters'),
+  priority: yup.string().oneOf(['urgent', 'high', 'medium', 'low']).optional(),
+  status: yup
+    .string()
+    .oneOf(['todo', 'in_progress', 'completed', 'cancelled'])
+    .optional(),
+  dueDate: yup.date().optional(),
+  tags: yup.array().of(yup.string()).optional(),
 });

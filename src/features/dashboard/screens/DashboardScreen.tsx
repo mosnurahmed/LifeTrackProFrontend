@@ -29,6 +29,8 @@ import { useExpenseStats } from '../../../hooks/api/useExpenses';
 import { useAuthStore } from '../../../store/authStore';
 import { Card, Spinner, ErrorState } from '../../../components/common';
 import { BudgetWidget, BudgetAlertCard } from '../../budget/components';
+// import { IncomeWidget } from '../../income/components';
+// import IncomeExpenseWidget from '../components/IncomeExpenseWidget';
 // import { SavingsGoalsWidget } from '../../savingsGoals/components';
 import {
   formatCurrency,
@@ -36,6 +38,11 @@ import {
   formatPercentage,
 } from '../../../utils/formatters';
 import { SavingsGoalsWidget } from '../../savings/components';
+import IncomeExpenseWidget from '../../income/components/IncomeExpenseWidget';
+import { IncomeWidget } from '../../income/components';
+
+import { TasksWidget } from '../../tasks/components';
+// import { IncomeExpenseWidget } from '../components';
 
 const { width } = Dimensions.get('window');
 
@@ -207,11 +214,13 @@ const DashboardScreen: React.FC = () => {
             </View>
           </View>
         </Card>
-
+        <IncomeExpenseWidget />
+        {/* OR separate widgets */}
+        <IncomeWidget />
         <BudgetAlertCard />
         <BudgetWidget />
         <SavingsGoalsWidget />
-
+        <TasksWidget />
         {/* Stats Overview */}
         <View style={styles.statsContainer}>
           {/* This Month */}

@@ -7,7 +7,12 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "android": "react-native run-android"
+    "android": "react-native run-android",
+    "android:debug": "cd android && ./gradlew assembleDebug",
+    "android:release": "cd android && ./gradlew assembleRelease",
+    "android:bundle": "cd android && ./gradlew bundleRelease",
+    "clean:android": "cd android && ./gradlew clean",
+    "clean:ios": "cd ios && xcodebuild clean"
   },
   "dependencies": {
     "@gorhom/bottom-sheet": "^5.2.8",

@@ -1,5 +1,5 @@
 /**
- * Categories Management Screen - Filter by Default Status
+ * Categories Management Screen - Updated with Type Filter
  */
 
 import React, { useState } from 'react';
@@ -18,7 +18,7 @@ import { useTheme } from '../../../hooks/useTheme';
 import {
   useCategories,
   useDeleteCategory,
-  useCreateDefaultCategories,
+  useCheckCategoryDeletion,
 } from '../../../hooks/api/useCategories';
 import {
   Card,
@@ -33,10 +33,15 @@ const CategoriesScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, textStyles, spacing, borderRadius, shadows } = useTheme();
 
-  // ✅ Filter by default status
-  const [filterType, setFilterType] = useState<'all' | 'default' | 'custom'>(
+  // ✅ Filter by type (expense/income/both)
+  const [typeFilter, setTypeFilter] = useState<'all' | 'expense' | 'income'>(
     'all',
   );
+  const [statusFilter, setStatusFilter] = useState<
+    'all' | 'default' | 'custom'
+  >('all');
+
+  const queryType = typeFilter === 'all' ? undefined : typeFilter;
 
   const {
     data: categoriesData,
@@ -44,11 +49,10 @@ const CategoriesScreen: React.FC = () => {
     error,
     refetch,
     isRefetching,
-  } = useCategories();
-  const categories = categoriesData?.data || [];
+  } = useCategories(queryType as any);
 
+  const categories = categoriesData?.data || [];
   const deleteMutation = useDeleteCategory();
-  const createDefaultsMutation = useCreateDefaultCategories();
 
   const styles = createStyles(
     colors,
@@ -58,49 +62,47 @@ const CategoriesScreen: React.FC = () => {
     shadows,
   );
 
-  // ✅ Filter categories by default status
-  const filteredCategories =
-    categories?.filter((cat: any) => {
-      if (filterType === 'all') return true;
-      if (filterType === 'default') return cat.isDefault === true;
-      if (filterType === 'custom') return cat.isDefault === false;
-      return true;
-    }) || [];
+  // Apply status filter
+  const filteredCategories = categories.filter((cat: any) => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'default') return cat.isDefault === true;
+    if (statusFilter === 'custom') return cat.isDefault === false;
+    return true;
+  });
 
-  const defaultCount = categories?.filter((c: any) => c.isDefault).length || 0;
-  const customCount = categories?.filter((c: any) => !c.isDefault).length || 0;
+  const expenseCount = categories.filter(
+    (c: any) => c.type === 'expense' || c.type === 'both',
+  ).length;
+  const incomeCount = categories.filter(
+    (c: any) => c.type === 'income' || c.type === 'both',
+  ).length;
+  const defaultCount = filteredCategories.filter(
+    (c: any) => c.isDefault,
+  ).length;
+  const customCount = filteredCategories.filter(
+    (c: any) => !c.isDefault,
+  ).length;
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     Alert.alert(
       'Delete Category',
-      `Are you sure you want to delete "${name}"? All expenses in this category will be moved to "Uncategorized".`,
+      `Delete "${name}"? This will also delete all related expenses/incomes.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => deleteMutation.mutate(id),
+          onPress: () => deleteMutation.mutate({ id, confirmed: true }),
         },
       ],
     );
   };
 
-  // const handleCreateDefaults = () => {
-  //   Alert.alert(
-  //     'Create Default Categories',
-  //     'This will create default expense categories like Food, Transport, Shopping, etc.',
-  //     [
-  //       { text: 'Cancel', style: 'cancel' },
-  //       {
-  //         text: 'Create',
-  //         onPress: () => createDefaultsMutation.mutate(),
-  //       },
-  //     ],
-  //   );
-  // };
-
   const handleAddCategory = () => {
-    (navigation as any).navigate('AddCategory', { mode: 'create' });
+    (navigation as any).navigate('AddCategory', {
+      mode: 'create',
+      defaultType: typeFilter === 'all' ? 'expense' : typeFilter, // ✅ Pass default type
+    });
   };
 
   const handleEditCategory = (id: string) => {
@@ -136,51 +138,30 @@ const CategoriesScreen: React.FC = () => {
     );
   }
 
-  if (!categories || categories.length === 0) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Categories</Text>
-        </View>
-        <EmptyState
-          icon="apps-outline"
-          title="No Categories Yet"
-          message="Create your first category or add default ones"
-          actionLabel="Create Defaults"
-          onAction={handleCreateDefaults}
-        />
-        <View style={styles.bottomActions}>
-          <Button onPress={handleAddCategory} fullWidth>
-            Add Custom Category
-          </Button>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Categories</Text>
-        {/* <TouchableOpacity onPress={handleCreateDefaults}>
-          <Icon name="add-circle-outline" size={24} color={colors.primary} />
-        </TouchableOpacity> */}
       </View>
 
-      {/* Filter Tabs - All / Default / Custom */}
-      <View style={styles.filterTabs}>
+      {/* Type Filter Tabs - Expense / Income / All */}
+      <View style={styles.typeFilters}>
         <TouchableOpacity
-          style={[
-            styles.filterTab,
-            filterType === 'all' && styles.filterTabActive,
-          ]}
-          onPress={() => setFilterType('all')}
+          style={[styles.typeTab, typeFilter === 'all' && styles.typeTabActive]}
+          onPress={() => setTypeFilter('all')}
         >
+          <Icon
+            name="apps"
+            size={16}
+            color={
+              typeFilter === 'all' ? colors.text.inverse : colors.text.secondary
+            }
+          />
           <Text
             style={[
-              styles.filterTabText,
-              filterType === 'all' && styles.filterTabTextActive,
+              styles.typeTabText,
+              typeFilter === 'all' && styles.typeTabTextActive,
             ]}
           >
             All ({categories.length})
@@ -189,37 +170,82 @@ const CategoriesScreen: React.FC = () => {
 
         <TouchableOpacity
           style={[
-            styles.filterTab,
-            filterType === 'default' && styles.filterTabActive,
+            styles.typeTab,
+            typeFilter === 'expense' && styles.typeTabActive,
           ]}
-          onPress={() => setFilterType('default')}
+          onPress={() => setTypeFilter('expense')}
         >
+          <Icon
+            name="trending-down"
+            size={16}
+            color={
+              typeFilter === 'expense'
+                ? colors.text.inverse
+                : colors.text.secondary
+            }
+          />
           <Text
             style={[
-              styles.filterTabText,
-              filterType === 'default' && styles.filterTabTextActive,
+              styles.typeTabText,
+              typeFilter === 'expense' && styles.typeTabTextActive,
             ]}
           >
-            Default ({defaultCount})
+            Expense ({expenseCount})
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[
-            styles.filterTab,
-            filterType === 'custom' && styles.filterTabActive,
+            styles.typeTab,
+            typeFilter === 'income' && styles.typeTabActive,
           ]}
-          onPress={() => setFilterType('custom')}
+          onPress={() => setTypeFilter('income')}
         >
+          <Icon
+            name="trending-up"
+            size={16}
+            color={
+              typeFilter === 'income'
+                ? colors.text.inverse
+                : colors.text.secondary
+            }
+          />
           <Text
             style={[
-              styles.filterTabText,
-              filterType === 'custom' && styles.filterTabTextActive,
+              styles.typeTabText,
+              typeFilter === 'income' && styles.typeTabTextActive,
             ]}
           >
-            Custom ({customCount})
+            Income ({incomeCount})
           </Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Status Filter Tabs - All / Default / Custom */}
+      <View style={styles.statusFilters}>
+        {['all', 'default', 'custom'].map(status => (
+          <TouchableOpacity
+            key={status}
+            style={[
+              styles.statusChip,
+              statusFilter === status && styles.statusChipActive,
+            ]}
+            onPress={() => setStatusFilter(status as any)}
+          >
+            <Text
+              style={[
+                styles.statusChipText,
+                statusFilter === status && styles.statusChipTextActive,
+              ]}
+            >
+              {status === 'all'
+                ? `All (${filteredCategories.length})`
+                : status === 'default'
+                ? `Default (${defaultCount})`
+                : `Custom (${customCount})`}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {/* Categories List */}
@@ -244,7 +270,57 @@ const CategoriesScreen: React.FC = () => {
                   <Icon name={item.icon} size={24} color={item.color} />
                 </View>
                 <View style={styles.categoryInfo}>
-                  <Text style={styles.categoryName}>{item.name}</Text>
+                  <View style={styles.categoryNameRow}>
+                    <Text style={styles.categoryName}>{item.name}</Text>
+                    {/* Type Badge */}
+                    <View
+                      style={[
+                        styles.typeBadge,
+                        {
+                          backgroundColor:
+                            item.type === 'income'
+                              ? `${colors.success}15`
+                              : item.type === 'both'
+                              ? `${colors.info}15`
+                              : `${colors.danger}15`,
+                        },
+                      ]}
+                    >
+                      <Icon
+                        name={
+                          item.type === 'income'
+                            ? 'trending-up'
+                            : item.type === 'both'
+                            ? 'swap-horizontal'
+                            : 'trending-down'
+                        }
+                        size={10}
+                        color={
+                          item.type === 'income'
+                            ? colors.success
+                            : item.type === 'both'
+                            ? colors.info
+                            : colors.danger
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.typeBadgeText,
+                          {
+                            color:
+                              item.type === 'income'
+                                ? colors.success
+                                : item.type === 'both'
+                                ? colors.info
+                                : colors.danger,
+                          },
+                        ]}
+                      >
+                        {item.type}
+                      </Text>
+                    </View>
+                  </View>
+
                   <View style={styles.categoryMeta}>
                     {/* Default Badge */}
                     {item.isDefault && (
@@ -265,11 +341,23 @@ const CategoriesScreen: React.FC = () => {
                       </View>
                     )}
                   </View>
-                  {/* Monthly Budget */}
-                  {item.monthlyBudget && item.monthlyBudget > 0 && (
-                    <Text style={styles.budgetText}>
-                      Budget: {formatCurrency(item.monthlyBudget)}/month
-                    </Text>
+
+                  {/* Budgets */}
+                  {(item.monthlyBudget || item.monthlyIncome) && (
+                    <View style={styles.budgets}>
+                      {item.monthlyBudget && item.monthlyBudget > 0 && (
+                        <Text style={styles.budgetText}>
+                          Budget: {formatCurrency(item.monthlyBudget)}/mo
+                        </Text>
+                      )}
+                      {item.monthlyIncome && item.monthlyIncome > 0 && (
+                        <Text
+                          style={[styles.budgetText, { color: colors.success }]}
+                        >
+                          Target: {formatCurrency(item.monthlyIncome)}/mo
+                        </Text>
+                      )}
+                    </View>
                   )}
                 </View>
               </View>
@@ -315,7 +403,9 @@ const CategoriesScreen: React.FC = () => {
           <EmptyState
             icon="apps-outline"
             title="No Categories Found"
-            message={`No ${filterType} categories available`}
+            message="Create your first category"
+            actionLabel="Add Category"
+            onAction={handleAddCategory}
           />
         }
       />
@@ -358,31 +448,62 @@ const createStyles = (
       ...textStyles.h3,
       color: colors.text.primary,
     },
-    filterTabs: {
+    typeFilters: {
       flexDirection: 'row',
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
       backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
       gap: spacing.sm,
     },
-    filterTab: {
+    typeTab: {
       flex: 1,
-      paddingVertical: spacing.sm,
+      flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      paddingVertical: spacing.sm,
       borderRadius: borderRadius.md,
       backgroundColor: colors.background,
     },
-    filterTabActive: {
+    typeTabActive: {
       backgroundColor: colors.primary,
     },
-    filterTabText: {
+    typeTabText: {
       ...textStyles.caption,
       color: colors.text.secondary,
       fontWeight: '600',
     },
-    filterTabTextActive: {
+    typeTabTextActive: {
+      color: colors.text.inverse,
+    },
+    statusFilters: {
+      flexDirection: 'row',
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.md,
+      gap: spacing.sm,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    statusChip: {
+      flex: 1,
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      borderRadius: borderRadius.full,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+    },
+    statusChipActive: {
+      backgroundColor: colors.primary,
+    },
+    statusChipText: {
+      ...textStyles.caption,
+      color: colors.text.secondary,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    statusChipTextActive: {
       color: colors.text.inverse,
     },
     listContent: {
@@ -413,10 +534,29 @@ const createStyles = (
     categoryInfo: {
       flex: 1,
     },
+    categoryNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginBottom: spacing.xs,
+    },
     categoryName: {
       ...textStyles.bodyMedium,
       color: colors.text.primary,
-      marginBottom: spacing.xs,
+    },
+    typeBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: spacing.xs,
+      paddingVertical: 2,
+      borderRadius: borderRadius.sm,
+    },
+    typeBadgeText: {
+      ...textStyles.caption,
+      fontSize: 9,
+      fontWeight: '700',
+      textTransform: 'uppercase',
     },
     categoryMeta: {
       flexDirection: 'row',
@@ -433,9 +573,13 @@ const createStyles = (
       fontSize: 10,
       fontWeight: '600',
     },
+    budgets: {
+      gap: 4,
+    },
     budgetText: {
       ...textStyles.caption,
       color: colors.text.secondary,
+      fontSize: 11,
     },
     categoryActions: {
       flexDirection: 'row',
@@ -459,9 +603,6 @@ const createStyles = (
       justifyContent: 'center',
       alignItems: 'center',
       ...shadows.lg,
-    },
-    bottomActions: {
-      padding: spacing.lg,
     },
   });
 

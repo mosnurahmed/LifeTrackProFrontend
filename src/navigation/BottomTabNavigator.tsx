@@ -9,6 +9,7 @@ import DashboardScreen from '../features/dashboard/screens/DashboardScreen';
 import ExpensesScreen from '../features/expenses/screens/ExpensesScreen';
 import BazarScreen from '../features/bazar/screens/BazarScreen';
 import ProfileScreen from '../features/profile/screens/ProfileScreen';
+import { IncomeScreen } from '../features/income/screens';
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
 
@@ -59,6 +60,16 @@ const BottomTabNavigator: React.FC = () => {
     >
       <Tab.Screen name="Home" component={DashboardScreen} />
       <Tab.Screen name="Expenses" component={ExpensesScreen} />
+      <Tab.Screen
+        name="Income"
+        component={IncomeScreen}
+        options={{
+          tabBarLabel: 'Income',
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="trending-up" size={size} color={color} />
+          ),
+        }}
+      />
       <Tab.Screen name="Bazar" component={BazarScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
