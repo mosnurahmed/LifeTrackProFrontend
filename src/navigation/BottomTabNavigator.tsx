@@ -1,6 +1,7 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-// import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { BottomTabParamList } from './types';
 import { useTheme } from '../hooks/useTheme';
@@ -15,6 +16,7 @@ const Tab = createBottomTabNavigator<BottomTabParamList>();
 
 const BottomTabNavigator: React.FC = () => {
   const { colors, spacing } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -29,6 +31,9 @@ const BottomTabNavigator: React.FC = () => {
               break;
             case 'Expenses':
               iconName = focused ? 'wallet' : 'wallet-outline';
+              break;
+            case 'Income':
+              iconName = focused ? 'trending-up' : 'trending-up-outline';
               break;
             case 'Bazar':
               iconName = focused ? 'cart' : 'cart-outline';
@@ -48,30 +53,55 @@ const BottomTabNavigator: React.FC = () => {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: spacing.sm,
+          // ✅ Perfect height calculation
+          height: Platform.select({
+            ios: 84,
+            android: 64 + insets.bottom, // Add bottom inset for Android
+          }),
+          paddingBottom: Platform.select({
+            ios: insets.bottom,
+            android: Math.max(insets.bottom, spacing.sm), // Minimum spacing or inset
+          }),
           paddingTop: spacing.sm,
+          position: 'absolute', // ✅ Make it float above content
+          elevation: 8, // ✅ Add shadow on Android
+          shadowColor: '#000', // ✅ Add shadow on iOS
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
+          marginBottom: Platform.OS === 'android' ? 4 : 0,
         },
       })}
     >
-      <Tab.Screen name="Home" component={DashboardScreen} />
-      <Tab.Screen name="Expenses" component={ExpensesScreen} />
+      <Tab.Screen
+        name="Home"
+        component={DashboardScreen}
+        options={{ tabBarLabel: 'Home' }}
+      />
+      <Tab.Screen
+        name="Expenses"
+        component={ExpensesScreen}
+        options={{ tabBarLabel: 'Expenses' }}
+      />
       <Tab.Screen
         name="Income"
         component={IncomeScreen}
-        options={{
-          tabBarLabel: 'Income',
-          tabBarIcon: ({ color, size }) => (
-            <Icon name="trending-up" size={size} color={color} />
-          ),
-        }}
+        options={{ tabBarLabel: 'Income' }}
       />
-      <Tab.Screen name="Bazar" component={BazarScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen
+        name="Bazar"
+        component={BazarScreen}
+        options={{ tabBarLabel: 'Bazar' }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ tabBarLabel: 'Profile' }}
+      />
     </Tab.Navigator>
   );
 };

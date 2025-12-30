@@ -9,15 +9,15 @@ import { Platform } from 'react-native';
 // API Configuration
 export const API_BASE_URL = __DEV__
   ? Platform.OS === 'android'
-    ? 'http://192.168.1.24:5000/api'  // Android emulator
-    : 'http://localhost:5000/api'  // iOS simulator
-  : 'https://your-production-api.com/api';  // Production
+    ? 'https://lifetrack-backend.vercel.app/api'  // Android emulator
+    : 'https://lifetrack-backend.vercel.app/api'  // iOS simulator
+  : 'https://lifetrack-backend.vercel.app/api';  // Production
 
 export const SOCKET_URL = __DEV__
   ? Platform.OS === 'android'
-    ? 'http://192.168.1.24:5000'
-    : 'http://localhost:5000'
-  : 'https://your-production-api.com';
+    ? 'https://lifetrack-backend.vercel.app/api'  // Android emulator
+    : 'https://lifetrack-backend.vercel.app/api'
+  : 'https://lifetrack-backend.vercel.app/api';
 
 // Pagination
 export const PAGE_SIZE = 20;

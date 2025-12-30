@@ -20,12 +20,15 @@ const IncomeExpenseWidget: React.FC = () => {
   const { data: expenseStatsData, isLoading: expenseLoading } =
     useExpenseStats();
 
-  const incomeStats = incomeStatsData?.data?.data;
-  const expenseStats = expenseStatsData?.data?.data;
+  const incomeStats = incomeStatsData?.data;
+  const expenseStats = expenseStatsData?.data;
+
+  console.log(' income expense', incomeStats, expenseStats);
 
   const styles = createStyles(colors, textStyles, spacing, borderRadius);
 
   if (incomeLoading || expenseLoading) {
+    console.log('loading wi');
     return (
       <Card style={styles.container}>
         <Spinner size="small" />
@@ -35,6 +38,7 @@ const IncomeExpenseWidget: React.FC = () => {
 
   const totalIncome = incomeStats?.allTime.total || 0;
   const totalExpense = expenseStats?.allTime.total || 0;
+
   const netBalance = totalIncome - totalExpense;
   const savingsRate =
     totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;

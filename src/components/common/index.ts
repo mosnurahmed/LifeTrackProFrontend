@@ -8,3 +8,5 @@ export { default as Card } from './Card';
 export { default as EmptyState } from './EmptyState';
 export { default as ErrorState } from './ErrorState';
 export { Skeleton, SkeletonCard, SkeletonList, Spinner } from './Loading';
+
+export { default as SafeScreen } from './SafeScreen'; // ✅ ADD THIS
