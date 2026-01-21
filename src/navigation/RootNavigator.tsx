@@ -24,6 +24,7 @@ import {
   AddSavingsGoalModal,
   SavingsGoalDetailsScreen,
 } from '../features/savings/screens';
+import { ChatScreen, ConversationsScreen } from '../features/chat/screens';
 
 const Stack = createNativeStackNavigator();
 
@@ -144,6 +145,17 @@ const RootNavigator: React.FC = () => {
               <Stack.Screen
                 name="IncomeDetails"
                 component={IncomeDetailsScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="Conversations"
+                component={ConversationsScreen}
+                options={{ headerShown: false }}
+              />
+
+              <Stack.Screen
+                name="Chat"
+                component={ChatScreen}
                 options={{ headerShown: false }}
               />
             </Stack.Group>
