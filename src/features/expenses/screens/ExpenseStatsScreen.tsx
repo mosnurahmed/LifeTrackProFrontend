@@ -1,8 +1,8 @@
 /**
- * Expense Statistics Screen - Enhanced with More Details
+ * Expense Stats Screen - Clean Professional Design
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,41 +13,107 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {
-  LineChart,
-  PieChart,
-  BarChart,
-  ProgressChart,
-} from 'react-native-chart-kit';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LineChart, BarChart } from 'react-native-chart-kit';
+import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../../../hooks/useTheme';
 import {
   useExpenseStats,
   useDailyExpenses,
 } from '../../../hooks/api/useExpenses';
-import { Card, Spinner, ErrorState } from '../../../components/common';
-import { formatCurrency } from '../../../utils/formatters';
+import { Spinner, ErrorState } from '../../../components/common';
+import { formatCurrency, formatCompactNumber } from '../../../utils/formatters';
 
 const { width } = Dimensions.get('window');
 
+const PERIODS = [
+  { label: 'This Month', days: 30 },
+  { label: '3 Months', days: 90 },
+  { label: '6 Months', days: 180 },
+  { label: 'This Year', days: 365 },
+];
+
+const TABS = ['Overview', 'Categories', 'Trends'] as const;
+type Tab = (typeof TABS)[number];
+
 const ExpenseStatsScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { colors, textStyles, spacing, borderRadius, shadows } = useTheme();
+  const { colors, textStyles, spacing, borderRadius, shadows, isDark } =
+    useTheme();
+  const insets = useSafeAreaInsets();
 
-  const [selectedPeriod, setSelectedPeriod] = useState<7 | 30 | 90>(30);
-  const [selectedTab, setSelectedTab] = useState<
-    'overview' | 'categories' | 'trends'
-  >('overview');
+  const [selectedPeriodIdx, setSelectedPeriodIdx] = useState(0);
+  const [selectedTab, setSelectedTab] = useState<Tab>('Overview');
+
+  const selectedPeriod = PERIODS[selectedPeriodIdx];
 
   const {
     data: statsData,
     isLoading: statsLoading,
     error: statsError,
   } = useExpenseStats();
-  const { data: dailyData, isLoading: dailyLoading } =
-    useDailyExpenses(selectedPeriod);
+  const { data: dailyData, isLoading: dailyLoading } = useDailyExpenses(
+    selectedPeriod.days,
+  );
 
   const stats = statsData?.data;
-  const dailyExpenses = dailyData?.data || [];
+  const dailyExpenses: any[] = dailyData?.data || [];
+
+  // Period totals from daily data
+  const periodTotal = useMemo(
+    () => dailyExpenses.reduce((sum, d) => sum + (d.total || 0), 0),
+    [dailyExpenses],
+  );
+
+  const periodCount = useMemo(
+    () => dailyExpenses.reduce((sum, d) => sum + (d.count || 0), 0),
+    [dailyExpenses],
+  );
+
+  const periodAvg =
+    periodTotal > 0 && selectedPeriod.days > 0
+      ? periodTotal / selectedPeriod.days
+      : 0;
+
+  // Chart config
+  const chartConfig = {
+    backgroundGradientFrom: colors.surface,
+    backgroundGradientTo: colors.surface,
+    decimalPlaces: 0,
+    color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
+    labelColor: () => colors.text.secondary,
+    propsForDots: { r: '3', strokeWidth: '2', stroke: colors.primary },
+    propsForBackgroundLines: { stroke: colors.border, strokeDasharray: '' },
+  };
+
+  // Line chart - last 14 days of selected period
+  const lineData = useMemo(() => {
+    const slice = dailyExpenses.slice(-14);
+    if (slice.length < 2) return null;
+    return {
+      labels: slice.map((d: any) => {
+        const date = new Date(d.date);
+        return `${date.getDate()}/${date.getMonth() + 1}`;
+      }),
+      datasets: [{ data: slice.map((d: any) => d.total || 0), strokeWidth: 2 }],
+    };
+  }, [dailyExpenses]);
+
+  // Bar chart - weekly grouped
+  const barData = useMemo(() => {
+    const weeks: number[] = [];
+    const labels: string[] = [];
+    const sliced = dailyExpenses.slice(-28);
+    for (let i = 0; i < 4; i++) {
+      const week = sliced.slice(i * 7, (i + 1) * 7);
+      weeks.push(week.reduce((s, d) => s + (d.total || 0), 0));
+      labels.push(`W${i + 1}`);
+    }
+    return {
+      labels,
+      datasets: [{ data: weeks.length ? weeks : [0, 0, 0, 0] }],
+    };
+  }, [dailyExpenses]);
 
   const styles = createStyles(
     colors,
@@ -57,94 +123,23 @@ const ExpenseStatsScreen: React.FC = () => {
     shadows,
   );
 
-  // Chart config
-  const chartConfig = {
-    backgroundGradientFrom: colors.surface,
-    backgroundGradientTo: colors.surface,
-    decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
-    labelColor: (opacity = 1) => colors.text.secondary,
-    style: {
-      borderRadius: borderRadius.md,
-    },
-    propsForDots: {
-      r: '4',
-      strokeWidth: '2',
-      stroke: colors.primary,
-    },
-  };
-
-  // Prepare line chart data (daily expenses)
-  const lineChartData = {
-    labels: dailyExpenses.slice(-7).map((d: any) => {
-      const date = new Date(d.date);
-      return `${date.getDate()}/${date.getMonth() + 1}`;
-    }),
-    datasets: [
-      {
-        data: dailyExpenses.slice(-7).map((d: any) => d.total || 0),
-        color: (opacity = 1) => colors.primary,
-        strokeWidth: 2,
-      },
-    ],
-  };
-
-  // Prepare pie chart data (category breakdown)
-  const pieChartData =
-    stats?.categoryBreakdown?.slice(0, 5).map((cat: any, index: number) => ({
-      name: cat.categoryName,
-      population: cat.total,
-      color:
-        cat.categoryColor ||
-        [
-          colors.primary,
-          colors.success,
-          colors.warning,
-          colors.danger,
-          colors.info,
-        ][index % 5],
-      legendFontColor: colors.text.primary,
-      legendFontSize: 12,
-    })) || [];
-
-  // Prepare weekly bar chart
-  const weeklyData = dailyExpenses.slice(-28);
-  const weeks = [];
-  for (let i = 0; i < 4; i++) {
-    const weekData = weeklyData.slice(i * 7, (i + 1) * 7);
-    const weekTotal = weekData.reduce(
-      (sum: number, d: any) => sum + (d.total || 0),
-      0,
-    );
-    weeks.push(weekTotal);
-  }
-
-  const barChartData = {
-    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-    datasets: [
-      {
-        data: weeks.length === 4 ? weeks : [0, 0, 0, 0],
-      },
-    ],
-  };
-
-  // Budget progress data
-  const budgetProgressData = {
-    labels:
-      stats?.categoryBreakdown
-        ?.filter((cat: any) => cat.budgetStatus)
-        .slice(0, 3)
-        .map((cat: any) => cat.categoryName) || [],
-    data:
-      stats?.categoryBreakdown
-        ?.filter((cat: any) => cat.budgetStatus)
-        .slice(0, 3)
-        .map((cat: any) => cat.budgetStatus.percentage / 100) || [],
-  };
+  const loadingHeader = (
+    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
+        style={styles.backBtn}
+      >
+        <Icon name="arrow-back" size={22} color={colors.text.primary} />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Statistics</Text>
+      <View style={{ width: 40 }} />
+    </View>
+  );
 
   if (statsLoading || dailyLoading) {
     return (
       <View style={styles.container}>
+        {loadingHeader}
         <Spinner text="Loading statistics..." />
       </View>
     );
@@ -153,8 +148,9 @@ const ExpenseStatsScreen: React.FC = () => {
   if (statsError || !stats) {
     return (
       <View style={styles.container}>
+        {loadingHeader}
         <ErrorState
-          title="Failed to load statistics"
+          title="Failed to load"
           message="Please try again"
           onRetry={() => navigation.goBack()}
         />
@@ -162,559 +158,373 @@ const ExpenseStatsScreen: React.FC = () => {
     );
   }
 
-  const totalBudget =
-    stats.categoryBreakdown
-      ?.filter((cat: any) => cat.budgetStatus)
-      .reduce((sum: number, cat: any) => sum + cat.budgetStatus.budget, 0) || 0;
-
-  const totalSpent =
-    stats.categoryBreakdown
-      ?.filter((cat: any) => cat.budgetStatus)
-      .reduce((sum: number, cat: any) => sum + cat.budgetStatus.spent, 0) || 0;
-
-  const totalRemaining = totalBudget - totalSpent;
+  const categoryBreakdown = stats.categoryBreakdown || [];
+  const totalCategorySpend = categoryBreakdown.reduce(
+    (s: number, c: any) => s + (c.total || 0),
+    0,
+  );
 
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={28} color={colors.text.primary} />
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+        >
+          <Icon name="arrow-back" size={22} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Expense Statistics</Text>
-        <View style={{ width: 28 }} />
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Tab Selector */}
-      <View style={styles.tabSelector}>
-        <TouchableOpacity
-          style={[styles.tab, selectedTab === 'overview' && styles.tabActive]}
-          onPress={() => setSelectedTab('overview')}
-        >
-          <Text
+      {/* Period Filter */}
+      <View style={styles.periodRow}>
+        {PERIODS.map((p, i) => (
+          <TouchableOpacity
+            key={p.label}
             style={[
-              styles.tabText,
-              selectedTab === 'overview' && styles.tabTextActive,
+              styles.periodBtn,
+              selectedPeriodIdx === i && styles.periodBtnActive,
             ]}
+            onPress={() => setSelectedPeriodIdx(i)}
           >
-            Overview
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, selectedTab === 'categories' && styles.tabActive]}
-          onPress={() => setSelectedTab('categories')}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              selectedTab === 'categories' && styles.tabTextActive,
-            ]}
-          >
-            Categories
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, selectedTab === 'trends' && styles.tabActive]}
-          onPress={() => setSelectedTab('trends')}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              selectedTab === 'trends' && styles.tabTextActive,
-            ]}
-          >
-            Trends
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={[
+                styles.periodBtnText,
+                selectedPeriodIdx === i && styles.periodBtnTextActive,
+              ]}
+            >
+              {p.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* OVERVIEW TAB */}
-        {selectedTab === 'overview' && (
+      {/* Tabs */}
+      <View style={styles.tabRow}>
+        {TABS.map(tab => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, selectedTab === tab && styles.tabActive]}
+            onPress={() => setSelectedTab(tab)}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                selectedTab === tab && styles.tabTextActive,
+              ]}
+            >
+              {tab}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* ───── OVERVIEW TAB ───── */}
+        {selectedTab === 'Overview' && (
           <>
-            {/* Summary Cards */}
-            <View style={styles.summaryGrid}>
-              <Card style={styles.summaryCard}>
-                <View style={styles.summaryIcon}>
-                  <Icon name="calendar" size={24} color={colors.primary} />
+            {/* Hero total card */}
+            <LinearGradient
+              colors={[colors.primary, `${colors.primary}BB`]}
+              style={styles.heroCard}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.heroLabel}>{selectedPeriod.label}</Text>
+              <Text style={styles.heroAmount}>
+                {formatCurrency(periodTotal)}
+              </Text>
+              <View style={styles.heroRow}>
+                <View style={styles.heroStat}>
+                  <Text style={styles.heroStatVal}>{periodCount}</Text>
+                  <Text style={styles.heroStatLabel}>Transactions</Text>
                 </View>
-                <Text style={styles.summaryValue}>
-                  {formatCurrency(stats.thisMonth?.total || 0)}
-                </Text>
-                <Text style={styles.summaryLabel}>This Month</Text>
-                <Text style={styles.summarySubtext}>
-                  {stats.thisMonth?.count || 0} transactions
-                </Text>
-                {stats.comparison?.percentageChange !== 0 && (
-                  <View
-                    style={[
-                      styles.summaryBadge,
-                      {
-                        backgroundColor:
-                          stats.comparison.percentageChange > 0
-                            ? `${colors.danger}15`
-                            : `${colors.success}15`,
-                      },
-                    ]}
-                  >
-                    <Icon
-                      name={
-                        stats.comparison.percentageChange > 0
-                          ? 'trending-up'
-                          : 'trending-down'
-                      }
-                      size={12}
-                      color={
-                        stats.comparison.percentageChange > 0
-                          ? colors.danger
-                          : colors.success
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.summaryBadgeText,
-                        {
-                          color:
-                            stats.comparison.percentageChange > 0
-                              ? colors.danger
-                              : colors.success,
-                        },
-                      ]}
-                    >
-                      {Math.abs(stats.comparison.percentageChange).toFixed(1)}%
-                    </Text>
-                  </View>
-                )}
-              </Card>
-
-              <Card style={styles.summaryCard}>
-                <View style={styles.summaryIcon}>
-                  <Icon name="time" size={24} color={colors.success} />
+                <View style={styles.heroDivider} />
+                <View style={styles.heroStat}>
+                  <Text style={styles.heroStatVal}>
+                    {formatCurrency(Math.round(periodAvg))}
+                  </Text>
+                  <Text style={styles.heroStatLabel}>Daily Avg</Text>
                 </View>
-                <Text style={styles.summaryValue}>
-                  {formatCurrency(stats.lastMonth?.total || 0)}
-                </Text>
-                <Text style={styles.summaryLabel}>Last Month</Text>
-                <Text style={styles.summarySubtext}>
-                  {stats.lastMonth?.count || 0} transactions
-                </Text>
-              </Card>
-
-              <Card style={styles.summaryCard}>
-                <View style={styles.summaryIcon}>
-                  <Icon name="stats-chart" size={24} color={colors.warning} />
-                </View>
-                <Text style={styles.summaryValue}>
-                  {formatCurrency(stats.thisMonth?.average || 0)}
-                </Text>
-                <Text style={styles.summaryLabel}>Daily Average</Text>
-                <Text style={styles.summarySubtext}>This month</Text>
-              </Card>
-
-              <Card style={styles.summaryCard}>
-                <View style={styles.summaryIcon}>
-                  <Icon name="trending-up" size={24} color={colors.info} />
-                </View>
-                <Text style={styles.summaryValue}>
-                  {formatCurrency(stats.thisMonth?.projected || 0)}
-                </Text>
-                <Text style={styles.summaryLabel}>Projected</Text>
-                <Text style={styles.summarySubtext}>End of month</Text>
-              </Card>
-            </View>
-
-            {/* Budget Overview */}
-            {totalBudget > 0 && (
-              <Card style={styles.budgetOverviewCard}>
-                <View style={styles.chartHeader}>
-                  <Icon name="wallet" size={20} color={colors.primary} />
-                  <Text style={styles.chartTitle}>Budget Overview</Text>
-                </View>
-
-                <View style={styles.budgetMainStats}>
-                  <View style={styles.budgetStatBox}>
-                    <Text style={styles.budgetStatLabel}>Total Budget</Text>
-                    <Text
-                      style={[
-                        styles.budgetStatValue,
-                        { color: colors.primary },
-                      ]}
-                    >
-                      {formatCurrency(totalBudget)}
-                    </Text>
-                  </View>
-                  <View style={styles.budgetStatBox}>
-                    <Text style={styles.budgetStatLabel}>Spent</Text>
-                    <Text
-                      style={[styles.budgetStatValue, { color: colors.danger }]}
-                    >
-                      {formatCurrency(totalSpent)}
-                    </Text>
-                  </View>
-                  <View style={styles.budgetStatBox}>
-                    <Text style={styles.budgetStatLabel}>Remaining</Text>
-                    <Text
-                      style={[
-                        styles.budgetStatValue,
-                        {
-                          color:
-                            totalRemaining >= 0
-                              ? colors.success
-                              : colors.danger,
-                        },
-                      ]}
-                    >
-                      {formatCurrency(totalRemaining)}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Progress Bar */}
-                <View style={styles.progressBarContainer}>
-                  <View
-                    style={[
-                      styles.progressBar,
-                      {
-                        width: `${Math.min(
-                          (totalSpent / totalBudget) * 100,
-                          100,
-                        )}%`,
-                        backgroundColor:
-                          (totalSpent / totalBudget) * 100 > 90
-                            ? colors.danger
-                            : (totalSpent / totalBudget) * 100 > 70
-                            ? colors.warning
-                            : colors.success,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.progressText}>
-                  {((totalSpent / totalBudget) * 100).toFixed(1)}% of budget
-                  used
-                </Text>
-              </Card>
-            )}
-
-            {/* All Time Stats */}
-            <Card style={styles.allTimeCard}>
-              <View style={styles.chartHeader}>
-                <Icon name="infinite" size={20} color={colors.primary} />
-                <Text style={styles.chartTitle}>All Time Statistics</Text>
-              </View>
-              <View style={styles.allTimeStats}>
-                <View style={styles.allTimeStat}>
-                  <Icon
-                    name="wallet-outline"
-                    size={32}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.allTimeValue}>
+                <View style={styles.heroDivider} />
+                <View style={styles.heroStat}>
+                  <Text style={styles.heroStatVal}>
                     {formatCurrency(stats.allTime?.total || 0)}
                   </Text>
-                  <Text style={styles.allTimeLabel}>Total Spent</Text>
-                </View>
-                <View style={styles.allTimeDivider} />
-                <View style={styles.allTimeStat}>
-                  <Icon
-                    name="receipt-outline"
-                    size={32}
-                    color={colors.success}
-                  />
-                  <Text style={styles.allTimeValue}>
-                    {stats.allTime?.count || 0}
-                  </Text>
-                  <Text style={styles.allTimeLabel}>Transactions</Text>
+                  <Text style={styles.heroStatLabel}>All Time</Text>
                 </View>
               </View>
-            </Card>
+            </LinearGradient>
 
-            {/* Insights */}
-            <Card style={styles.insightsCard}>
-              <View style={styles.chartHeader}>
-                <Icon name="bulb" size={20} color={colors.warning} />
-                <Text style={styles.chartTitle}>Insights</Text>
-              </View>
-
-              <View style={styles.insightItem}>
-                <Icon
-                  name="checkmark-circle"
-                  size={18}
-                  color={colors.success}
-                />
-                <Text style={styles.insightText}>
-                  You've made{' '}
-                  <Text style={styles.insightHighlight}>
-                    {stats.thisMonth?.count || 0}
-                  </Text>{' '}
-                  transactions this month
+            {/* This month vs last month */}
+            <View style={styles.compareRow}>
+              <View
+                style={[
+                  styles.compareCard,
+                  { backgroundColor: colors.surface },
+                ]}
+              >
+                <Icon name="calendar" size={20} color={colors.primary} />
+                <Text style={styles.compareAmount}>
+                  {formatCurrency(stats.thisMonth?.total || 0)}
+                </Text>
+                <Text style={styles.compareLabel}>This Month</Text>
+                <Text style={styles.compareCount}>
+                  {stats.thisMonth?.count || 0} txns
                 </Text>
               </View>
+              <View
+                style={[
+                  styles.compareCard,
+                  { backgroundColor: colors.surface },
+                ]}
+              >
+                <Icon name="time-outline" size={20} color={colors.success} />
+                <Text style={styles.compareAmount}>
+                  {formatCurrency(stats.lastMonth?.total || 0)}
+                </Text>
+                <Text style={styles.compareLabel}>Last Month</Text>
+                <Text style={styles.compareCount}>
+                  {stats.lastMonth?.count || 0} txns
+                </Text>
+              </View>
+            </View>
 
-              {stats.thisMonth?.projected && (
-                <View style={styles.insightItem}>
-                  <Icon name="trending-up" size={18} color={colors.info} />
-                  <Text style={styles.insightText}>
-                    Projected spending:{' '}
-                    <Text style={styles.insightHighlight}>
-                      {formatCurrency(stats.thisMonth.projected)}
-                    </Text>
-                  </Text>
-                </View>
-              )}
-
-              {stats.comparison?.percentageChange !== 0 && (
-                <View style={styles.insightItem}>
-                  <Icon
-                    name={
+            {/* Month comparison badge */}
+            {stats.comparison?.percentageChange !== 0 && (
+              <View
+                style={[
+                  styles.changeBadgeWrap,
+                  {
+                    backgroundColor:
                       stats.comparison.percentageChange > 0
-                        ? 'alert-circle'
-                        : 'happy'
-                    }
-                    size={18}
-                    color={
-                      stats.comparison.percentageChange > 0
-                        ? colors.danger
-                        : colors.success
-                    }
-                  />
-                  <Text style={styles.insightText}>
-                    You're spending{' '}
-                    <Text style={styles.insightHighlight}>
-                      {Math.abs(stats.comparison.percentageChange).toFixed(1)}%{' '}
-                      {stats.comparison.percentageChange > 0 ? 'more' : 'less'}
-                    </Text>{' '}
-                    than last month
-                  </Text>
-                </View>
-              )}
+                        ? `${colors.danger}12`
+                        : `${colors.success}12`,
+                  },
+                ]}
+              >
+                <Icon
+                  name={
+                    stats.comparison.percentageChange > 0
+                      ? 'trending-up'
+                      : 'trending-down'
+                  }
+                  size={18}
+                  color={
+                    stats.comparison.percentageChange > 0
+                      ? colors.danger
+                      : colors.success
+                  }
+                />
+                <Text
+                  style={[
+                    styles.changeBadgeText,
+                    {
+                      color:
+                        stats.comparison.percentageChange > 0
+                          ? colors.danger
+                          : colors.success,
+                    },
+                  ]}
+                >
+                  {Math.abs(stats.comparison.percentageChange).toFixed(1)}%{' '}
+                  {stats.comparison.percentageChange > 0 ? 'more' : 'less'} than
+                  last month
+                </Text>
+              </View>
+            )}
 
-              {totalBudget > 0 && (
-                <View style={styles.insightItem}>
-                  <Icon
-                    name={totalRemaining >= 0 ? 'checkmark-circle' : 'warning'}
-                    size={18}
-                    color={totalRemaining >= 0 ? colors.success : colors.danger}
-                  />
-                  <Text style={styles.insightText}>
-                    {totalRemaining >= 0 ? (
-                      <>
-                        You have{' '}
-                        <Text style={styles.insightHighlight}>
-                          {formatCurrency(totalRemaining)}
-                        </Text>{' '}
-                        remaining in your budget
-                      </>
-                    ) : (
-                      <>
-                        You've exceeded your budget by{' '}
-                        <Text style={styles.insightHighlight}>
-                          {formatCurrency(Math.abs(totalRemaining))}
-                        </Text>
-                      </>
-                    )}
+            {/* Projected */}
+            {stats.thisMonth?.projected > 0 && (
+              <View style={styles.projectedRow}>
+                <Icon name="flash-outline" size={16} color={colors.warning} />
+                <Text style={styles.projectedText}>
+                  Projected end of month:{' '}
+                  <Text
+                    style={{ color: colors.text.primary, fontWeight: '700' }}
+                  >
+                    {formatCurrency(stats.thisMonth.projected)}
                   </Text>
-                </View>
-              )}
-            </Card>
+                </Text>
+              </View>
+            )}
           </>
         )}
 
-        {/* CATEGORIES TAB */}
-        {selectedTab === 'categories' && (
+        {/* ───── CATEGORIES TAB ───── */}
+        {selectedTab === 'Categories' && (
           <>
-            {/* Category Breakdown Pie Chart */}
-            {pieChartData.length > 0 && (
-              <Card style={styles.chartCard}>
-                <View style={styles.chartHeader}>
-                  <Icon name="pie-chart" size={20} color={colors.primary} />
-                  <Text style={styles.chartTitle}>Category Distribution</Text>
-                </View>
-                <PieChart
-                  data={pieChartData}
-                  width={width - 60}
-                  height={220}
-                  chartConfig={chartConfig}
-                  accessor="population"
-                  backgroundColor="transparent"
-                  paddingLeft="15"
-                  center={[10, 0]}
-                  absolute
+            {categoryBreakdown.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon
+                  name="pie-chart-outline"
+                  size={48}
+                  color={colors.text.tertiary}
                 />
-              </Card>
-            )}
-
-            {/* Category Details */}
-            {stats.categoryBreakdown && stats.categoryBreakdown.length > 0 && (
-              <Card style={styles.categoryCard}>
-                <View style={styles.chartHeader}>
-                  <Icon name="apps" size={20} color={colors.primary} />
-                  <Text style={styles.chartTitle}>Category Breakdown</Text>
+                <Text style={styles.emptyText}>No category data</Text>
+              </View>
+            ) : (
+              <View style={styles.catCard}>
+                <View style={styles.catCardHeader}>
+                  <Icon name="apps-outline" size={20} color={colors.primary} />
+                  <Text style={styles.catCardTitle}>Spending by Category</Text>
                 </View>
-
-                {stats.categoryBreakdown.map((cat: any, index: number) => {
-                  const hasBudget = cat.budgetStatus !== null;
+                {categoryBreakdown.map((cat: any, idx: number) => {
+                  const pct =
+                    totalCategorySpend > 0
+                      ? ((cat.total / totalCategorySpend) * 100).toFixed(1)
+                      : '0';
+                  const barWidth =
+                    totalCategorySpend > 0
+                      ? (cat.total / totalCategorySpend) * 100
+                      : 0;
+                  const catColor = cat.categoryColor || colors.primary;
 
                   return (
-                    <View key={cat._id} style={styles.categoryRow}>
-                      <View style={styles.categoryLeft}>
-                        <View
-                          style={[
-                            styles.categoryRank,
-                            {
-                              backgroundColor:
-                                index < 3
-                                  ? cat.categoryColor
-                                  : colors.background,
-                            },
-                          ]}
-                        >
-                          <Icon
-                            name={cat.categoryIcon}
-                            size={18}
-                            color={
-                              index < 3
-                                ? colors.text.inverse
-                                : colors.text.secondary
-                            }
-                          />
-                        </View>
-                        <View style={styles.categoryInfo}>
-                          <Text style={styles.categoryName}>
-                            {cat.categoryName}
-                          </Text>
-                          <Text style={styles.categoryCount}>
-                            {cat.count} transaction{cat.count !== 1 ? 's' : ''}
-                          </Text>
-                          {hasBudget && (
-                            <View style={styles.budgetInfo}>
-                              <View style={styles.budgetBar}>
-                                <View
-                                  style={[
-                                    styles.budgetBarFill,
-                                    {
-                                      width: `${Math.min(
-                                        cat.budgetStatus.percentage,
-                                        100,
-                                      )}%`,
-                                      backgroundColor:
-                                        cat.budgetStatus.percentage > 90
-                                          ? colors.danger
-                                          : cat.budgetStatus.percentage > 70
-                                          ? colors.warning
-                                          : colors.success,
-                                    },
-                                  ]}
-                                />
-                              </View>
-                              <Text style={styles.budgetText}>
-                                {formatCurrency(cat.budgetStatus.spent)} /{' '}
-                                {formatCurrency(cat.budgetStatus.budget)} (
-                                {cat.budgetStatus.percentage.toFixed(0)}%)
-                              </Text>
-                            </View>
-                          )}
-                        </View>
+                    <View key={cat._id || idx} style={styles.catRow}>
+                      <View
+                        style={[
+                          styles.catIconWrap,
+                          { backgroundColor: `${catColor}18` },
+                        ]}
+                      >
+                        <Icon
+                          name={cat.categoryIcon || 'wallet-outline'}
+                          size={18}
+                          color={catColor}
+                        />
                       </View>
-                      <View style={styles.categoryRight}>
-                        <Text style={styles.categoryAmount}>
-                          {formatCurrency(cat.total)}
-                        </Text>
-                        <Text style={styles.categoryPercentage}>
-                          {cat.percentage.toFixed(1)}%
+                      <View style={styles.catInfo}>
+                        <View style={styles.catNameRow}>
+                          <Text style={styles.catName}>{cat.categoryName}</Text>
+                          <Text style={styles.catAmount}>
+                            {formatCurrency(cat.total)}
+                          </Text>
+                        </View>
+                        <View style={styles.catBarRow}>
+                          <View style={styles.catBarBg}>
+                            <View
+                              style={[
+                                styles.catBarFill,
+                                {
+                                  width: `${barWidth}%`,
+                                  backgroundColor: catColor,
+                                },
+                              ]}
+                            />
+                          </View>
+                          <Text style={styles.catPct}>{pct}%</Text>
+                        </View>
+                        <Text style={styles.catCount}>
+                          {cat.count} transaction{cat.count !== 1 ? 's' : ''}
                         </Text>
                       </View>
                     </View>
                   );
                 })}
-              </Card>
+              </View>
             )}
           </>
         )}
 
-        {/* TRENDS TAB */}
-        {selectedTab === 'trends' && (
+        {/* ───── TRENDS TAB ───── */}
+        {selectedTab === 'Trends' && (
           <>
-            {/* Period Selector */}
-            <View style={styles.periodSelector}>
-              {[7, 30, 90].map(days => (
-                <TouchableOpacity
-                  key={days}
-                  style={[
-                    styles.periodButton,
-                    selectedPeriod === days && styles.periodButtonActive,
-                  ]}
-                  onPress={() => setSelectedPeriod(days as 7 | 30 | 90)}
-                >
-                  <Text
-                    style={[
-                      styles.periodButtonText,
-                      selectedPeriod === days && styles.periodButtonTextActive,
-                    ]}
-                  >
-                    {days === 7
-                      ? '7 Days'
-                      : days === 30
-                      ? '30 Days'
-                      : '90 Days'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Daily Trend Chart */}
-            <Card style={styles.chartCard}>
+            {/* Daily trend chart */}
+            <View style={styles.chartCard}>
               <View style={styles.chartHeader}>
-                <Icon name="trending-up" size={20} color={colors.primary} />
-                <Text style={styles.chartTitle}>
-                  Daily Spending (Last 7 Days)
-                </Text>
+                <Icon
+                  name="trending-up-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={styles.chartTitle}>Daily Spending Trend</Text>
               </View>
-              {dailyExpenses.length > 0 ? (
+              {lineData ? (
                 <LineChart
-                  data={lineChartData}
-                  width={width - 60}
-                  height={220}
+                  data={lineData}
+                  width={width - spacing.lg * 2 - 32}
+                  height={200}
                   chartConfig={chartConfig}
                   bezier
-                  style={styles.chart}
                   withInnerLines={false}
-                  withOuterLines={true}
+                  withOuterLines={false}
                   withVerticalLines={false}
                   withHorizontalLines={true}
                   withDots={true}
                   withShadow={false}
                   fromZero
+                  style={{
+                    borderRadius: borderRadius.md,
+                    marginTop: spacing.sm,
+                  }}
                 />
               ) : (
-                <View style={styles.emptyChart}>
-                  <Text style={styles.emptyChartText}>No data available</Text>
+                <View style={styles.noData}>
+                  <Text style={styles.noDataText}>Not enough data</Text>
                 </View>
               )}
-            </Card>
+            </View>
 
-            {/* Weekly Comparison */}
-            {weeks.length === 4 && weeks.some(w => w > 0) && (
-              <Card style={styles.chartCard}>
-                <View style={styles.chartHeader}>
-                  <Icon name="bar-chart" size={20} color={colors.primary} />
-                  <Text style={styles.chartTitle}>Weekly Comparison</Text>
-                </View>
+            {/* Weekly bar chart */}
+            <View style={styles.chartCard}>
+              <View style={styles.chartHeader}>
+                <Icon
+                  name="bar-chart-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={styles.chartTitle}>Weekly Comparison</Text>
+              </View>
+              {barData.datasets[0].data.some((v: number) => v > 0) ? (
                 <BarChart
-                  data={barChartData}
-                  width={width - 60}
-                  height={220}
+                  data={barData}
+                  width={width - spacing.lg * 2 - 32}
+                  height={200}
                   chartConfig={chartConfig}
-                  style={styles.chart}
                   showValuesOnTopOfBars
                   fromZero
+                  style={{
+                    borderRadius: borderRadius.md,
+                    marginTop: spacing.sm,
+                  }}
                 />
-              </Card>
-            )}
+              ) : (
+                <View style={styles.noData}>
+                  <Text style={styles.noDataText}>Not enough data</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Summary numbers */}
+            <View style={styles.trendSummary}>
+              <View style={styles.trendStat}>
+                <Text style={styles.trendStatVal}>
+                  {formatCompactNumber(periodTotal)}
+                </Text>
+                <Text style={styles.trendStatLabel}>
+                  Total ({selectedPeriod.label})
+                </Text>
+              </View>
+              <View style={styles.trendDivider} />
+              <View style={styles.trendStat}>
+                <Text style={styles.trendStatVal}>
+                  {formatCompactNumber(Math.round(periodAvg))}
+                </Text>
+                <Text style={styles.trendStatLabel}>Daily Average</Text>
+              </View>
+              <View style={styles.trendDivider} />
+              <View style={styles.trendStat}>
+                <Text style={styles.trendStatVal}>{periodCount}</Text>
+                <Text style={styles.trendStatLabel}>Transactions</Text>
+              </View>
+            </View>
           </>
         )}
 
-        <View style={{ height: 30 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
@@ -722,31 +532,63 @@ const ExpenseStatsScreen: React.FC = () => {
 
 const createStyles = (
   colors: any,
-  textStyles: any,
+  _textStyles: any,
   spacing: any,
   borderRadius: any,
-  shadows: any,
+  _shadows: any,
 ) =>
   StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
+    container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
+      paddingHorizontal: 12,
+      paddingBottom: 12,
       backgroundColor: colors.surface,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
+    backBtn: {
+      width: 38,
+      height: 38,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
     headerTitle: {
-      ...textStyles.h3,
+      fontSize: 16,
+      fontWeight: '700',
       color: colors.text.primary,
     },
-    tabSelector: {
+    periodRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      gap: 8,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    periodBtn: {
+      flex: 1,
+      paddingVertical: 7,
+      alignItems: 'center',
+      borderRadius: 10,
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    periodBtnActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    periodBtnText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.text.secondary,
+    },
+    periodBtnTextActive: { color: '#FFFFFF' },
+    tabRow: {
       flexDirection: 'row',
       backgroundColor: colors.surface,
       borderBottomWidth: 1,
@@ -754,286 +596,199 @@ const createStyles = (
     },
     tab: {
       flex: 1,
-      paddingVertical: spacing.md,
+      paddingVertical: 10,
       alignItems: 'center',
       borderBottomWidth: 2,
       borderBottomColor: 'transparent',
     },
-    tabActive: {
-      borderBottomColor: colors.primary,
+    tabActive: { borderBottomColor: colors.primary },
+    tabText: { fontSize: 13, color: colors.text.secondary },
+    tabTextActive: { color: colors.primary, fontWeight: '700' },
+    scroll: { flex: 1, padding: 16 },
+
+    // Hero card
+    heroCard: {
+      borderRadius: 14,
+      padding: 18,
+      marginBottom: 12,
+      elevation: 2,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 4,
     },
-    tabText: {
-      ...textStyles.body,
-      color: colors.text.secondary,
-    },
-    tabTextActive: {
-      color: colors.primary,
+    heroLabel: {
+      color: '#FFFFFF99',
+      fontSize: 12,
       fontWeight: '600',
+      marginBottom: 2,
     },
-    content: {
+    heroAmount: {
+      color: '#FFFFFF',
+      fontSize: 28,
+      fontWeight: '800',
+      letterSpacing: -1,
+      marginBottom: 14,
+    },
+    heroRow: { flexDirection: 'row', alignItems: 'center' },
+    heroStat: { flex: 1, alignItems: 'center' },
+    heroStatVal: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '700',
+      marginBottom: 2,
+    },
+    heroStatLabel: { color: '#FFFFFF80', fontSize: 10 },
+    heroDivider: { width: 1, height: 28, backgroundColor: '#FFFFFF30' },
+
+    // Compare cards
+    compareRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+    compareCard: {
       flex: 1,
-      padding: spacing.lg,
-    },
-    periodSelector: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-      marginBottom: spacing.lg,
-    },
-    periodButton: {
-      flex: 1,
-      paddingVertical: spacing.sm,
+      padding: 14,
+      borderRadius: 14,
       alignItems: 'center',
-      borderRadius: borderRadius.md,
-      backgroundColor: colors.surface,
+      gap: 3,
       borderWidth: 1,
       borderColor: colors.border,
     },
-    periodButtonActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
+    compareAmount: {
+      fontSize: 15,
+      color: colors.text.primary,
+      fontWeight: '700',
+      marginTop: 4,
     },
-    periodButtonText: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      fontWeight: '600',
-    },
-    periodButtonTextActive: {
-      color: colors.text.inverse,
-    },
-    summaryGrid: {
+    compareLabel: { fontSize: 12, color: colors.text.secondary },
+    compareCount: { fontSize: 10, color: colors.text.tertiary },
+
+    // Change badge
+    changeBadgeWrap: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.md,
-      marginBottom: spacing.lg,
-    },
-    summaryCard: {
-      width: '47%',
       alignItems: 'center',
-      paddingVertical: spacing.lg,
+      gap: 8,
+      padding: 12,
+      borderRadius: 10,
+      marginBottom: 10,
     },
-    summaryIcon: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: colors.background,
+    changeBadgeText: { fontSize: 13, fontWeight: '600' },
+
+    // Projected
+    projectedRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: `${colors.warning}12`,
+      padding: 12,
+      borderRadius: 10,
+      marginBottom: 10,
+    },
+    projectedText: { fontSize: 13, color: colors.text.secondary, flex: 1 },
+
+    // Category card
+    catCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    catCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 12,
+    },
+    catCardTitle: {
+      fontSize: 14,
+      color: colors.text.primary,
+      fontWeight: '700',
+    },
+    catRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      gap: 10,
+    },
+    catIconWrap: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: spacing.md,
     },
-    summaryValue: {
-      ...textStyles.h4,
-      color: colors.text.primary,
-      fontWeight: '700',
-      marginBottom: spacing.xs,
+    catInfo: { flex: 1 },
+    catNameRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 4,
     },
-    summaryLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      marginBottom: 2,
-    },
-    summarySubtext: {
-      ...textStyles.caption,
-      color: colors.text.tertiary,
-      fontSize: 10,
-    },
-    summaryBadge: {
+    catName: { fontSize: 13, color: colors.text.primary, fontWeight: '600' },
+    catAmount: { fontSize: 13, color: colors.text.primary, fontWeight: '700' },
+    catBarRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-      borderRadius: borderRadius.sm,
-      marginTop: spacing.xs,
+      gap: 8,
+      marginBottom: 3,
     },
-    summaryBadgeText: {
-      ...textStyles.caption,
-      fontWeight: '700',
-      fontSize: 10,
-    },
-    budgetOverviewCard: {
-      marginBottom: spacing.lg,
-    },
-    budgetMainStats: {
-      flexDirection: 'row',
-      gap: spacing.md,
-      marginBottom: spacing.md,
-    },
-    budgetStatBox: {
+    catBarBg: {
       flex: 1,
-      backgroundColor: colors.background,
-      padding: spacing.md,
-      borderRadius: borderRadius.md,
-      alignItems: 'center',
-    },
-    budgetStatLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      marginBottom: spacing.xs,
-    },
-    budgetStatValue: {
-      ...textStyles.bodyMedium,
-      fontWeight: '700',
-    },
-    progressBarContainer: {
-      height: 8,
+      height: 5,
       backgroundColor: colors.border,
-      borderRadius: borderRadius.full,
+      borderRadius: 3,
       overflow: 'hidden',
-      marginBottom: spacing.sm,
     },
-    progressBar: {
-      height: '100%',
-      borderRadius: borderRadius.full,
-    },
-    progressText: {
-      ...textStyles.caption,
+    catBarFill: { height: '100%', borderRadius: 3 },
+    catPct: {
+      fontSize: 11,
       color: colors.text.secondary,
-      textAlign: 'center',
+      fontWeight: '600',
+      width: 36,
+      textAlign: 'right',
     },
-    allTimeCard: {
-      marginBottom: spacing.lg,
-    },
-    allTimeStats: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    allTimeStat: {
-      flex: 1,
-      alignItems: 'center',
-    },
-    allTimeDivider: {
-      width: 1,
-      height: 60,
-      backgroundColor: colors.border,
-    },
-    allTimeValue: {
-      ...textStyles.h3,
-      color: colors.text.primary,
-      fontWeight: '700',
-      marginVertical: spacing.sm,
-    },
-    allTimeLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-    },
+    catCount: { fontSize: 10, color: colors.text.tertiary },
+
+    // Charts
     chartCard: {
-      marginBottom: spacing.lg,
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 12,
     },
     chartHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.sm,
-      marginBottom: spacing.md,
+      gap: 8,
     },
-    chartTitle: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      fontWeight: '600',
-    },
-    chart: {
-      marginVertical: spacing.sm,
-      borderRadius: borderRadius.md,
-    },
-    emptyChart: {
-      height: 220,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    emptyChartText: {
-      ...textStyles.caption,
-      color: colors.text.tertiary,
-    },
-    categoryCard: {
-      marginBottom: spacing.lg,
-    },
-    categoryRow: {
+    chartTitle: { fontSize: 14, color: colors.text.primary, fontWeight: '700' },
+    noData: { height: 120, justifyContent: 'center', alignItems: 'center' },
+    noDataText: { fontSize: 13, color: colors.text.tertiary },
+
+    // Trend summary
+    trendSummary: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    categoryLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      flex: 1,
-    },
-    categoryRank: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    categoryInfo: {
-      flex: 1,
-    },
-    categoryName: {
-      ...textStyles.body,
-      color: colors.text.primary,
-      marginBottom: 2,
-    },
-    categoryCount: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      marginBottom: spacing.xs,
-    },
-    budgetInfo: {
-      marginTop: spacing.xs,
-    },
-    budgetBar: {
-      height: 4,
-      backgroundColor: colors.border,
-      borderRadius: 2,
-      overflow: 'hidden',
-      marginBottom: 4,
-    },
-    budgetBarFill: {
-      height: '100%',
-      borderRadius: 2,
-    },
-    budgetText: {
-      ...textStyles.caption,
-      color: colors.text.tertiary,
-      fontSize: 10,
-    },
-    categoryRight: {
-      alignItems: 'flex-end',
-    },
-    categoryAmount: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      fontWeight: '700',
-      marginBottom: 2,
-    },
-    categoryPercentage: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-    },
-    insightsCard: {
-      //   backgroundColor: `${colors.warning}10`,
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      padding: 14,
       borderWidth: 1,
-      borderColor: `${colors.warning}30`,
-      marginBottom: spacing.lg,
+      borderColor: colors.border,
     },
-    insightItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      paddingVertical: spacing.sm,
-    },
-    insightText: {
-      ...textStyles.body,
-      color: colors.text.secondary,
-      flex: 1,
-      lineHeight: 22,
-    },
-    insightHighlight: {
+    trendStat: { flex: 1, alignItems: 'center' },
+    trendStatVal: {
+      fontSize: 14,
       color: colors.text.primary,
       fontWeight: '700',
+      marginBottom: 3,
     },
+    trendStatLabel: { fontSize: 10, color: colors.text.secondary },
+    trendDivider: { width: 1, backgroundColor: colors.border },
+
+    // Empty
+    emptyState: { alignItems: 'center', paddingVertical: 60, gap: 12 },
+    emptyText: { fontSize: 13, color: colors.text.tertiary },
   });
 
 export default ExpenseStatsScreen;

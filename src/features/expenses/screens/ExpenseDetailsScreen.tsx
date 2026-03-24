@@ -1,6 +1,5 @@
-/* eslint-disable react-native/no-inline-styles */
 /**
- * Expense Details Screen - Fixed for Backend Structure
+ * Expense Details Screen - Professional Minimal
  */
 
 import React from 'react';
@@ -11,17 +10,16 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
 import {
   useExpense,
   useDeleteExpense,
-  // useDuplicateExpense,
 } from '../../../hooks/api/useExpenses';
-import { Card, Button, Spinner, ErrorState } from '../../../components/common';
+import { Spinner, ErrorState, useConfirm } from '../../../components/common';
 import {
   formatCurrency,
   formatDate,
@@ -31,492 +29,278 @@ import {
 const ExpenseDetailsScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { colors, textStyles, spacing, borderRadius } = useTheme();
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const { expenseId } = (route.params as any) || {};
 
   const { data: expenseData, isLoading, error } = useExpense(expenseId);
   const deleteMutation = useDeleteExpense();
-  // const duplicateMutation = useDuplicateExpense();
+  const { confirm } = useConfirm();
   const expense = expenseData?.data;
 
-  const styles = createStyles(
-    colors,
-    textStyles,
-    spacing,
-    borderRadius,
-    // shadows,
-  );
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
+  const borderC = isDark ? '#334155' : '#F1F5F9';
+  const bgColor = colors.background;
 
   const handleEdit = () => {
     (navigation as any).navigate('AddExpense', { mode: 'edit', expenseId });
   };
 
-  const handleDelete = () => {
-    Alert.alert(
-      'Delete Expense',
-      'Are you sure you want to delete this expense?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteMutation.mutateAsync(expenseId);
-            navigation.goBack();
-          },
-        },
-      ],
-    );
+  const handleDelete = async () => {
+    const ok = await confirm({
+      title: 'Delete Expense',
+      message: 'This action cannot be undone. Are you sure?',
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+    if (ok) {
+      await deleteMutation.mutateAsync(expenseId);
+      navigation.goBack();
+    }
   };
 
-  // const handleDuplicate = async () => {
-  //   await duplicateMutation.mutateAsync(expenseId);
-  //   navigation.goBack();
-  // };
+  const category = expense?.category || expense?.categoryId;
+  const catColor = category?.color || '#8B5CF6';
+  const catIcon = category?.icon || 'wallet-outline';
+  const catName = category?.name || 'Uncategorized';
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <Spinner text="Loading expense..." />
+      <View style={[styles.container, { backgroundColor: bgColor }]}>
+        <Spinner text="Loading..." />
       </View>
     );
   }
 
   if (error || !expense) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: bgColor }]}>
         <ErrorState
-          title="Expense not found"
-          message="Unable to load expense details"
+          title="Not found"
+          message="Unable to load expense"
           onRetry={() => navigation.goBack()}
         />
       </View>
     );
   }
 
-  // ✅ Get category from either category or categoryId field
-  const category = expense.category || expense.categoryId;
+  const PAYMENT_LABELS: Record<string, string> = {
+    cash: 'Cash',
+    card: 'Card',
+    mobile_banking: 'Mobile Banking',
+    bank_transfer: 'Bank Transfer',
+  };
+
+  const renderDetailRow = (icon: string, label: string, value: string) => (
+    <View style={[styles.detailRow, { borderBottomColor: borderC }]}>
+      <Icon name={icon} size={18} color={textSec} />
+      <Text style={[styles.detailLabel, { color: textSec }]}>{label}</Text>
+      <Text style={[styles.detailValue, { color: textPri }]} numberOfLines={2}>{value}</Text>
+    </View>
+  );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: bgColor }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={28} color={colors.text.primary} />
+      <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: surfaceC, borderBottomColor: borderC }]}>
+        <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-back" size={22} color={textPri} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Expense Details</Text>
-        <TouchableOpacity onPress={handleEdit}>
-          <Icon name="create-outline" size={24} color={colors.primary} />
+        <Text style={[styles.headerTitle, { color: textPri }]}>Details</Text>
+        <TouchableOpacity style={styles.headerBtn} onPress={handleEdit}>
+          <Icon name="create-outline" size={20} color="#8B5CF6" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* Amount Card */}
-        <Card
-          variant="elevated"
-          style={[styles.amountCard, { backgroundColor: colors.danger }]}
-        >
-          <View style={styles.amountContent}>
-            <View
-              style={[
-                styles.categoryIconLarge,
-                { backgroundColor: 'rgba(255,255,255,0.2)' },
-              ]}
-            >
-              {/* ✅ Use Icon component for Ionicons */}
-              <Icon
-                name={category?.icon || 'cash'}
-                size={40}
-                color={colors.text.inverse}
-              />
-            </View>
-            <View style={styles.amountInfo}>
-              <Text style={styles.categoryName}>
-                {category?.name || 'Uncategorized'}
-              </Text>
-              <Text style={styles.amountLarge}>
-                {formatCurrency(expense.amount)}
-              </Text>
-              <Text style={styles.dateText}>
-                {formatDate(expense.date, 'dd MMM yyyy')}
-              </Text>
-            </View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+        {/* Amount Hero */}
+        <View style={styles.hero}>
+          <View style={[styles.heroIcon, { backgroundColor: catColor + '18' }]}>
+            <Icon name={catIcon} size={28} color={catColor} />
           </View>
-        </Card>
+          <Text style={[styles.heroAmount, { color: textPri }]}>
+            {formatCurrency(expense.amount)}
+          </Text>
+          <Text style={[styles.heroCat, { color: catColor }]}>{catName}</Text>
+          <Text style={[styles.heroDate, { color: textSec }]}>
+            {formatDate(expense.date, 'dd MMM yyyy')}
+          </Text>
+        </View>
 
         {/* Details Card */}
-        <Card style={styles.detailsCard}>
-          <Text style={styles.sectionTitle}>Details</Text>
+        <View style={[styles.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          {expense.description && expense.description.trim() !== '' &&
+            renderDetailRow('document-text-outline', 'Description', expense.description)}
+          {renderDetailRow('apps-outline', 'Category', catName)}
+          {expense.paymentMethod &&
+            renderDetailRow(
+              expense.paymentMethod === 'cash' ? 'cash-outline' : expense.paymentMethod === 'card' ? 'card-outline' : 'phone-portrait-outline',
+              'Payment',
+              PAYMENT_LABELS[expense.paymentMethod] || expense.paymentMethod
+            )}
+          {expense.location?.address &&
+            renderDetailRow('location-outline', 'Location', expense.location.address)}
+          {expense.isRecurring && expense.recurringConfig &&
+            renderDetailRow('repeat-outline', 'Recurring',
+              expense.recurringConfig.interval.charAt(0).toUpperCase() + expense.recurringConfig.interval.slice(1))}
+          {renderDetailRow('time-outline', 'Created', formatRelativeTime(expense.createdAt))}
+        </View>
 
-          {/* Description */}
-          {expense.description && expense.description.trim() !== '' && (
-            <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>
-                <Icon
-                  name="document-text-outline"
-                  size={20}
-                  color={colors.text.secondary}
-                />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Description</Text>
-                <Text style={styles.detailValue}>{expense.description}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Category */}
-          <View style={styles.detailRow}>
-            <View style={styles.detailIcon}>
-              <Icon
-                name="apps-outline"
-                size={20}
-                color={colors.text.secondary}
-              />
-            </View>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Category</Text>
-              <View style={styles.categoryRow}>
-                <View
-                  style={[
-                    styles.categoryIconSmall,
-                    {
-                      backgroundColor: `${category?.color || colors.primary}15`,
-                    },
-                  ]}
-                >
-                  <Icon
-                    name={category?.icon || 'cash'}
-                    size={16}
-                    color={category?.color || colors.primary}
-                  />
+        {/* Tags */}
+        {expense.tags && expense.tags.length > 0 && (
+          <View style={[styles.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+            <Text style={[styles.cardLabel, { color: textSec }]}>Tags</Text>
+            <View style={styles.tagsWrap}>
+              {expense.tags.map((tag: string, i: number) => (
+                <View key={i} style={[styles.tag, { backgroundColor: '#8B5CF615' }]}>
+                  <Text style={[styles.tagText, { color: '#8B5CF6' }]}>#{tag}</Text>
                 </View>
-                <Text style={styles.detailValue}>
-                  {category?.name || 'Uncategorized'}
-                </Text>
-              </View>
+              ))}
             </View>
           </View>
-
-          {/* Payment Method */}
-          {expense.paymentMethod && (
-            <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>
-                <Icon
-                  name={
-                    expense.paymentMethod === 'cash'
-                      ? 'cash-outline'
-                      : expense.paymentMethod === 'card'
-                      ? 'card-outline'
-                      : 'phone-portrait-outline'
-                  }
-                  size={20}
-                  color={colors.text.secondary}
-                />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Payment Method</Text>
-                <Text style={styles.detailValue}>
-                  {expense.paymentMethod === 'cash'
-                    ? 'Cash'
-                    : expense.paymentMethod === 'card'
-                    ? 'Card'
-                    : 'Mobile Banking'}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Location */}
-          {expense.location?.address && (
-            <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>
-                <Icon
-                  name="location-outline"
-                  size={20}
-                  color={colors.text.secondary}
-                />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Location</Text>
-                <Text style={styles.detailValue}>
-                  {expense.location.address}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Tags */}
-          {expense.tags && expense.tags.length > 0 && (
-            <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>
-                <Icon
-                  name="pricetag-outline"
-                  size={20}
-                  color={colors.text.secondary}
-                />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Tags</Text>
-                <View style={styles.tagsContainer}>
-                  {expense.tags.map((tag, index) => (
-                    <View key={index} style={styles.tag}>
-                      <Text style={styles.tagText}>#{tag}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Recurring */}
-          {expense.isRecurring && expense.recurringConfig && (
-            <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>
-                <Icon name="repeat-outline" size={20} color={colors.primary} />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Recurring</Text>
-                <Text style={styles.detailValue}>
-                  {expense.recurringConfig.interval.charAt(0).toUpperCase() +
-                    expense.recurringConfig.interval.slice(1)}
-                  {expense.recurringConfig.endDate &&
-                    ` until ${formatDate(
-                      expense.recurringConfig.endDate,
-                      'dd MMM yyyy',
-                    )}`}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Created At */}
-          <View style={styles.detailRow}>
-            <View style={styles.detailIcon}>
-              <Icon
-                name="time-outline"
-                size={20}
-                color={colors.text.secondary}
-              />
-            </View>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Created</Text>
-              <Text style={styles.detailValue}>
-                {formatRelativeTime(expense.createdAt)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Updated At */}
-          {expense.updatedAt !== expense.createdAt && (
-            <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>
-                <Icon
-                  name="sync-outline"
-                  size={20}
-                  color={colors.text.secondary}
-                />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Last Updated</Text>
-                <Text style={styles.detailValue}>
-                  {formatRelativeTime(expense.updatedAt)}
-                </Text>
-              </View>
-            </View>
-          )}
-        </Card>
-
-        {/* Attachments */}
-        {expense.receiptImage && (
-          <Card style={styles.attachmentsCard}>
-            <Text style={styles.sectionTitle}>Receipt</Text>
-            <View style={styles.attachmentsGrid}>
-              <TouchableOpacity style={styles.attachment}>
-                <Image
-                  source={{ uri: expense.receiptImage }}
-                  style={styles.attachmentImage}
-                />
-              </TouchableOpacity>
-            </View>
-          </Card>
         )}
 
-        {/* Actions */}
-        <Card style={styles.actionsCard}>
-          {/* <Button
-            variant="outline"
-            icon="copy-outline"
-            onPress={handleDuplicate}
-            loading={duplicateMutation.isPending}
-            fullWidth
-            style={{ marginBottom: spacing.md }}
-          >
-            Duplicate Expense
-          </Button> */}
-          <Button
-            variant="danger"
-            icon="trash-outline"
-            onPress={handleDelete}
-            loading={deleteMutation.isPending}
-            fullWidth
-          >
-            Delete Expense
-          </Button>
-        </Card>
+        {/* Receipt */}
+        {expense.receiptImage && (
+          <View style={[styles.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+            <Text style={[styles.cardLabel, { color: textSec }]}>Receipt</Text>
+            <Image source={{ uri: expense.receiptImage }} style={styles.receipt} resizeMode="cover" />
+          </View>
+        )}
 
-        <View style={{ height: 50 }} />
+        {/* Delete */}
+        <TouchableOpacity
+          style={[styles.deleteBtn, { borderColor: '#EF444440' }]}
+          onPress={handleDelete}
+          activeOpacity={0.7}
+        >
+          <Icon name="trash-outline" size={18} color="#EF4444" />
+          <Text style={styles.deleteBtnText}>Delete Expense</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
 };
 
-const createStyles = (
-  colors: any,
-  textStyles: any,
-  spacing: any,
-  borderRadius: any,
-  // shadows: any,
-) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    headerTitle: {
-      ...textStyles.h3,
-      color: colors.text.primary,
-    },
-    content: {
-      flex: 1,
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.lg,
-    },
-    amountCard: {
-      marginBottom: spacing.lg,
-    },
-    amountContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.lg,
-    },
-    categoryIconLarge: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    amountInfo: {
-      flex: 1,
-    },
-    categoryName: {
-      ...textStyles.caption,
-      color: 'rgba(255,255,255,0.8)',
-      marginBottom: spacing.xs,
-    },
-    amountLarge: {
-      ...textStyles.h1,
-      color: colors.text.inverse,
-      fontWeight: '700',
-      marginBottom: spacing.xs,
-    },
-    dateText: {
-      ...textStyles.body,
-      color: 'rgba(255,255,255,0.9)',
-    },
-    detailsCard: {
-      marginBottom: spacing.lg,
-    },
-    sectionTitle: {
-      ...textStyles.h4,
-      color: colors.text.primary,
-      marginBottom: spacing.md,
-    },
-    detailRow: {
-      flexDirection: 'row',
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    detailIcon: {
-      width: 40,
-      alignItems: 'center',
-      justifyContent: 'flex-start',
-      paddingTop: 2,
-    },
-    detailContent: {
-      flex: 1,
-    },
-    detailLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      marginBottom: 4,
-    },
-    detailValue: {
-      ...textStyles.body,
-      color: colors.text.primary,
-    },
-    categoryRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    categoryIconSmall: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    tagsContainer: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-      marginTop: 4,
-    },
-    tag: {
-      backgroundColor: `${colors.primary}15`,
-      borderRadius: borderRadius.sm,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-    },
-    tagText: {
-      ...textStyles.caption,
-      color: colors.primary,
-    },
-    attachmentsCard: {
-      marginBottom: spacing.lg,
-    },
-    attachmentsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.md,
-    },
-    attachment: {
-      width: '100%',
-      aspectRatio: 1.5,
-      borderRadius: borderRadius.md,
-      overflow: 'hidden',
-    },
-    attachmentImage: {
-      width: '100%',
-      height: '100%',
-    },
-    actionsCard: {
-      marginBottom: spacing.lg,
-    },
-  });
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+  headerBtn: {
+    width: 38,
+    height: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: { fontSize: 16, fontWeight: '700' },
+
+  hero: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    gap: 6,
+  },
+  heroIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  heroAmount: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -1,
+  },
+  heroCat: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  heroDate: {
+    fontSize: 13,
+  },
+
+  card: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+  },
+  cardLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    gap: 10,
+  },
+  detailLabel: {
+    fontSize: 13,
+    width: 90,
+  },
+  detailValue: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+
+  tagsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tag: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  tagText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  receipt: {
+    width: '100%',
+    height: 200,
+    borderRadius: 10,
+  },
+
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    gap: 8,
+  },
+  deleteBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#EF4444',
+  },
+});
 
 export default ExpenseDetailsScreen;

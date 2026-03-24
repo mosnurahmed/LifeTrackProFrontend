@@ -10,7 +10,8 @@ import { Alert } from 'react-native';
 export const useConversations = () => {
   return useQuery({
     queryKey: ['conversations'],
-    queryFn: chatAPI.getAllConversations
+    queryFn: chatAPI.getAllConversations,
+   
   });
 };
 
@@ -53,6 +54,12 @@ export const useMarkAsRead = () => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
       queryClient.invalidateQueries({ queryKey: ['unread-count'] });
     }
+  });
+};
+
+export const useSearchUser = () => {
+  return useMutation({
+    mutationFn: (email: string) => chatAPI.searchUserByEmail(email),
   });
 };
 

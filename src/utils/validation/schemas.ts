@@ -98,10 +98,6 @@ export const categorySchema = yup.object({
     .oneOf(['expense', 'income', 'both'], 'Invalid type')
     .required('Type is required'),
   
-  monthlyBudget: yup.number().positive().optional(),
-  
-  // ✅ NEW: Monthly income target
-  monthlyIncome: yup.number().positive().optional(),
 });
 
 // Budget update schema

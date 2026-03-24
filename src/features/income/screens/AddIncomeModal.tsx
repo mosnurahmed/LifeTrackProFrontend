@@ -26,7 +26,7 @@ import {
   useIncome,
   useIncomeCategories,
 } from '../../../hooks/api/useIncome';
-import { Button, Input, Spinner } from '../../../components/common';
+import { Button, Input, Spinner, SafeScreen } from '../../../components/common';
 import { incomeSchema } from '../../../utils/validation/schemas';
 import { formatDate } from '../../../utils/formatters';
 import RecurringIncomeModal from '../components/RecurringIncomeModal';
@@ -47,13 +47,12 @@ const AddIncomeModal: React.FC = () => {
   const [recurringData, setRecurringData] = useState<any>(null);
   const [selectedImages, setSelectedImages] = useState<any[]>([]);
 
-  const { data: categoryRes, isLoading: categoriesLoading } = useCategories();
+  const { data: categoryRes, isLoading: categoriesLoading } = useCategories('income');
   const { data: incomeData, isLoading: incomeLoading } = useIncome(incomeId);
   const createMutation = useCreateIncome();
   const updateMutation = useUpdateIncome();
 
-  const categories =
-    categoryRes?.data.filter((c: any) => c.type === 'income') || [];
+  const categories = categoryRes?.data || [];
   const income = incomeData?.data;
 
   const {
@@ -134,24 +133,25 @@ const AddIncomeModal: React.FC = () => {
 
   if (categoriesLoading || (isEditMode && incomeLoading)) {
     return (
-      <View style={styles.container}>
+      <View style={styles.safeContainer}>
         <Spinner text="Loading..." />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="close" size={28} color={colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.title}>
-          {isEditMode ? 'Edit Income' : 'Add Income'}
-        </Text>
-        <View style={{ width: 28 }} />
-      </View>
+    <SafeScreen>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Icon name="close" size={24} color={colors.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.title}>
+            {isEditMode ? 'Edit Income' : 'Add Income'}
+          </Text>
+          <View style={{ width: 24 }} />
+        </View>
 
       <ScrollView style={styles.content}>
         {/* Amount */}
@@ -307,112 +307,23 @@ const AddIncomeModal: React.FC = () => {
               name="paymentMethod"
               render={({ field: { onChange, value } }) => (
                 <>
-                  <TouchableOpacity
-                    style={[
-                      styles.paymentMethod,
-                      value === 'cash' && styles.paymentMethodSelected,
-                    ]}
-                    onPress={() => onChange('cash')}
-                  >
-                    <Icon
-                      name="cash-outline"
-                      size={24}
-                      color={
-                        value === 'cash'
-                          ? colors.success
-                          : colors.text.secondary
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.paymentMethodText,
-                        value === 'cash' && styles.paymentMethodTextSelected,
-                      ]}
+                  {[
+                    { key: 'cash', icon: 'cash-outline', label: 'Cash' },
+                    { key: 'card', icon: 'card-outline', label: 'Card' },
+                    { key: 'mobile_banking', icon: 'phone-portrait-outline', label: 'Mobile' },
+                    { key: 'bank_transfer', icon: 'business-outline', label: 'Bank' },
+                  ].map(pm => (
+                    <TouchableOpacity
+                      key={pm.key}
+                      style={[styles.paymentMethod, value === pm.key && styles.paymentMethodSelected]}
+                      onPress={() => onChange(pm.key)}
                     >
-                      Cash
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.paymentMethod,
-                      value === 'card' && styles.paymentMethodSelected,
-                    ]}
-                    onPress={() => onChange('card')}
-                  >
-                    <Icon
-                      name="card-outline"
-                      size={24}
-                      color={
-                        value === 'card'
-                          ? colors.success
-                          : colors.text.secondary
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.paymentMethodText,
-                        value === 'card' && styles.paymentMethodTextSelected,
-                      ]}
-                    >
-                      Card
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.paymentMethod,
-                      value === 'mobile_banking' &&
-                        styles.paymentMethodSelected,
-                    ]}
-                    onPress={() => onChange('mobile_banking')}
-                  >
-                    <Icon
-                      name="phone-portrait-outline"
-                      size={24}
-                      color={
-                        value === 'mobile_banking'
-                          ? colors.success
-                          : colors.text.secondary
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.paymentMethodText,
-                        value === 'mobile_banking' &&
-                          styles.paymentMethodTextSelected,
-                      ]}
-                    >
-                      Mobile
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.paymentMethod,
-                      value === 'bank_transfer' && styles.paymentMethodSelected,
-                    ]}
-                    onPress={() => onChange('bank_transfer')}
-                  >
-                    <Icon
-                      name="business-outline"
-                      size={24}
-                      color={
-                        value === 'bank_transfer'
-                          ? colors.success
-                          : colors.text.secondary
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.paymentMethodText,
-                        value === 'bank_transfer' &&
-                          styles.paymentMethodTextSelected,
-                      ]}
-                    >
-                      Bank
-                    </Text>
-                  </TouchableOpacity>
+                      <Icon name={pm.icon} size={18} color={value === pm.key ? colors.success : colors.text.secondary} />
+                      <Text style={[styles.paymentMethodText, value === pm.key && styles.paymentMethodTextSelected]}>
+                        {pm.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </>
               )}
             />
@@ -604,7 +515,8 @@ const AddIncomeModal: React.FC = () => {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </SafeScreen>
   );
 };
 
@@ -615,167 +527,93 @@ const createStyles = (
   borderRadius: any,
 ) =>
   StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
+    container: { flex: 1, backgroundColor: colors.background },
+    safeContainer: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    title: {
-      ...textStyles.h3,
-      color: colors.text.primary,
-    },
-    content: {
-      flex: 1,
-      paddingHorizontal: spacing.lg,
-    },
+    title: { fontSize: 16, fontWeight: '700', color: colors.text.primary },
+    content: { flex: 1, paddingHorizontal: 16 },
     amountSection: {
-      paddingVertical: spacing.xl,
+      paddingVertical: 20,
       alignItems: 'center',
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    amountLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      marginBottom: spacing.sm,
-    },
-    amountInputContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    currencySymbol: {
-      ...textStyles.h1,
-      color: colors.text.primary,
-      marginRight: spacing.sm,
-    },
-    amountTextInput: {
-      ...textStyles.h1,
-      color: colors.text.primary,
-      textAlign: 'center',
-      minWidth: 150,
-      padding: 0,
-    },
-    section: {
-      marginTop: spacing.xl,
-    },
-    sectionTitle: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      marginBottom: spacing.md,
-    },
+    amountLabel: { fontSize: 12, color: colors.text.secondary, marginBottom: 6 },
+    amountInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+    currencySymbol: { fontSize: 28, fontWeight: '700', color: colors.text.primary, marginRight: 4 },
+    amountTextInput: { fontSize: 28, fontWeight: '700', color: colors.text.primary, textAlign: 'center', minWidth: 120, padding: 0 },
+    section: { marginTop: 16 },
+    sectionTitle: { fontSize: 13, fontWeight: '600', color: colors.text.secondary, marginBottom: 8 },
     categorySelector: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: borderRadius.md,
+      borderRadius: 10,
       backgroundColor: colors.surface,
     },
-    categorySelectorText: {
-      ...textStyles.body,
-      color: colors.text.primary,
-      flex: 1,
-      marginLeft: spacing.sm,
-    },
-    categoryIconSmall: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: spacing.sm,
-    },
+    categorySelectorText: { fontSize: 14, color: colors.text.primary, flex: 1, marginLeft: 8 },
+    categoryIconSmall: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
     dateSelector: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: borderRadius.md,
+      borderRadius: 10,
       backgroundColor: colors.surface,
     },
-    dateSelectorText: {
-      ...textStyles.body,
-      color: colors.text.primary,
-      flex: 1,
-      marginLeft: spacing.sm,
-    },
-    paymentMethods: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-    },
+    dateSelectorText: { fontSize: 14, color: colors.text.primary, flex: 1, marginLeft: 8 },
+    paymentMethods: { flexDirection: 'row', gap: 10 },
     paymentMethod: {
       flex: 1,
       alignItems: 'center',
-      paddingVertical: spacing.md,
+      paddingVertical: 10,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: borderRadius.md,
+      borderRadius: 10,
       backgroundColor: colors.surface,
     },
-    paymentMethodSelected: {
-      borderColor: colors.success,
-      backgroundColor: `${colors.success}10`,
-    },
-    paymentMethodText: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      marginTop: spacing.xs,
-    },
-    paymentMethodTextSelected: {
-      color: colors.success,
-      fontWeight: '600',
-    },
+    paymentMethodSelected: { borderColor: colors.success, backgroundColor: `${colors.success}10` },
+    paymentMethodText: { fontSize: 11, color: colors.text.secondary, marginTop: 4 },
+    paymentMethodTextSelected: { color: colors.success, fontWeight: '600' },
     recurringButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: borderRadius.md,
+      borderRadius: 10,
       backgroundColor: colors.surface,
-      gap: spacing.sm,
+      gap: 8,
     },
-    recurringButtonText: {
-      ...textStyles.body,
-      color: colors.text.secondary,
-    },
-    removeRecurring: {
-      alignSelf: 'flex-end',
-      marginTop: spacing.sm,
-    },
-    removeRecurringText: {
-      ...textStyles.caption,
-      color: colors.danger,
-    },
+    recurringButtonText: { fontSize: 14, color: colors.text.secondary },
+    removeRecurring: { alignSelf: 'flex-end', marginTop: 6 },
+    removeRecurringText: { fontSize: 12, color: colors.danger },
     uploadButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: spacing.lg,
-      borderWidth: 2,
+      paddingVertical: 14,
+      borderWidth: 1.5,
       borderStyle: 'dashed',
       borderColor: colors.border,
-      borderRadius: borderRadius.md,
-      gap: spacing.sm,
+      borderRadius: 10,
+      gap: 8,
     },
-    uploadButtonText: {
-      ...textStyles.body,
-      color: colors.success,
-    },
+    uploadButtonText: { fontSize: 13, color: colors.success, fontWeight: '500' },
     imagesPreview: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -801,16 +639,12 @@ const createStyles = (
     },
     footer: {
       flexDirection: 'row',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
       borderTopWidth: 1,
       borderTopColor: colors.border,
     },
-    errorText: {
-      ...textStyles.caption,
-      color: colors.danger,
-      marginTop: spacing.xs,
-    },
+    errorText: { fontSize: 12, color: colors.danger, marginTop: 4 },
     pickerOverlay: {
       flex: 1,
       backgroundColor: 'rgba(0, 0, 0, 0.5)',

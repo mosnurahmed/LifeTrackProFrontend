@@ -1,15 +1,5 @@
 /**
- * Dashboard Screen - Complete Production Version
- *
- * Features:
- * - Welcome card with user info
- * - Month/Today expense stats
- * - Quick action buttons
- * - Top categories by spending
- * - Recent transactions
- * - Budget progress bars
- * - Pull to refresh
- * - Navigation to all features
+ * Dashboard Screen — Professional Minimal
  */
 
 import React from 'react';
@@ -24,995 +14,756 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
-import { useExpenseStats } from '../../../hooks/api/useExpenses';
 import { useAuthStore } from '../../../store/authStore';
-import { Card, Spinner, ErrorState } from '../../../components/common';
-import { BudgetWidget, BudgetAlertCard } from '../../budget/components';
-// import { IncomeWidget } from '../../income/components';
-// import IncomeExpenseWidget from '../components/IncomeExpenseWidget';
-// import { SavingsGoalsWidget } from '../../savingsGoals/components';
-import {
-  formatCurrency,
-  formatRelativeTime,
-  formatPercentage,
-} from '../../../utils/formatters';
-import { SavingsGoalsWidget } from '../../savings/components';
-import IncomeExpenseWidget from '../../income/components/IncomeExpenseWidget';
-import { IncomeWidget } from '../../income/components';
-
-import { TasksWidget } from '../../tasks/components';
-// import { IncomeExpenseWidget } from '../components';
+import { useExpenseStats, useExpenses } from '../../../hooks/api/useExpenses';
+import { useBudgetSummary } from '../../../hooks/api/useBudget';
+import { useIncomeStats } from '../../../hooks/api/useIncome';
+import { useTaskStats } from '../../../hooks/api/useTasks';
+import { useUnreadCount } from '../../../hooks/api/useNotifications';
+import { useSavingsStats } from '../../../hooks/api/useSavingsGoals';
+import { formatCurrency, formatRelativeTime } from '../../../utils/formatters';
 
 const { width } = Dimensions.get('window');
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface QuickAction {
+  icon: string;
+  label: string;
+  color: string;
+  nav: string;
+  params?: Record<string, any>;
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+
 const DashboardScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { colors, textStyles, spacing, borderRadius, shadows } = useTheme();
+  const { colors, isDark } = useTheme();
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
 
-  const {
-    data: stats,
-    isLoading,
-    error,
-    refetch,
-    isRefetching,
-  } = useExpenseStats();
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthLabel = `${MONTHS[month - 1]} ${year}`;
 
-  const styles = createStyles(
-    colors,
-    textStyles,
-    spacing,
-    borderRadius,
-    shadows,
-  );
+  const { data: unreadCount = 0 } = useUnreadCount();
+  const { data: savingsStats } = useSavingsStats(year, month);
+  const { data: expenseStats, isRefetching, refetch } = useExpenseStats();
+  const { data: incomeStats } = useIncomeStats();
+  const { data: budgetData } = useBudgetSummary(year, month);
+  const { data: taskStats } = useTaskStats();
+  const { data: recentData } = useExpenses({
+    limit: 5,
+    sortBy: 'date',
+    sortOrder: 'desc',
+  } as any);
 
-  const quickActions = [
+  // useExpenseStats: select=(data)=>data.data → data = { success, data: { thisMonth, categoryBreakdown, ... } }
+  // useIncomeStats:  select=(res)=>res.data   → data = { success, data: { thisMonth, ... } }
+  // useBudgetSummary:select=(data)=>data.data → data = { success, data: { totalBudget, totalSpent, ... } }
+  // useTaskStats:    select=(data)=>data.data → data = { success, data: { total, completed, overdue, ... } }
+  // useExpenses:     no select               → data = axios response, expenses at data.data.data
+
+  const monthExpenses = expenseStats?.data?.thisMonth?.total ?? 0;
+  const monthIncome = incomeStats?.data?.thisMonth?.total ?? 0;
+  const net = monthIncome - monthExpenses;
+
+  const totalBudget = budgetData?.data?.totalBudget ?? 0;
+  const totalSpent = budgetData?.data?.totalSpent ?? 0;
+  const budgetPct =
+    totalBudget > 0 ? Math.min((totalSpent / totalBudget) * 100, 100) : 0;
+  const budgetOver = totalBudget > 0 && totalSpent > totalBudget;
+
+  const totalTasks = taskStats?.data?.total ?? 0;
+  const completedTasks = taskStats?.data?.completed ?? 0;
+  const overdueTasks = taskStats?.data?.overdue ?? 0;
+  const pendingTasks = totalTasks - completedTasks;
+
+  // useSavingsStats: select=(data)=>data?.data?.data → returns { totalBalance, initialBalance, ... }
+  const totalSaved = savingsStats?.totalBalance ?? 0;
+
+  // categoryBreakdown fields: { categoryName, categoryIcon, categoryColor, total, percentage }
+  const topCategories = expenseStats?.data?.categoryBreakdown ?? [];
+  // useExpenses (no select): axios response → .data = API body → .data = expenses array
+  const recentTxns = recentData?.data?.data ?? [];
+
+  // Theme
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
+  const borderC = isDark ? '#334155' : '#F1F5F9';
+  const bgColor = colors.background;
+
+  const ACTIONS: QuickAction[] = [
     {
-      id: 'add-expense',
-      icon: 'add-circle',
+      icon: 'add-circle-outline',
       label: 'Add Expense',
-      color: colors.primary,
-      onPress: () =>
-        (navigation as any).navigate('AddExpense', { mode: 'create' }),
+      color: '#EF4444',
+      nav: 'AddExpense',
+      params: { mode: 'create' },
     },
     {
-      id: 'expenses',
-      icon: 'wallet',
-      label: 'Expenses',
-      color: colors.danger,
-      onPress: () => navigation.navigate('Expenses' as never),
+      icon: 'add-circle-outline',
+      label: 'Add Income',
+      color: '#10B981',
+      nav: 'AddIncome',
+      params: { mode: 'create' },
     },
     {
-      id: 'budget',
-      icon: 'stats-chart',
+      icon: 'pie-chart-outline',
       label: 'Budget',
-      color: colors.info,
-      onPress: () => (navigation as any).navigate('Budget'),
+      color: '#8B5CF6',
+      nav: 'Budget',
     },
     {
-      id: 'savings',
-      icon: 'trophy',
+      icon: 'trending-up-outline',
       label: 'Savings',
-      color: colors.success,
-      onPress: () => (navigation as any).navigate('Savings'),
+      color: '#F59E0B',
+      nav: 'Savings',
+    },
+    {
+      icon: 'checkmark-circle-outline',
+      label: 'Tasks',
+      color: '#06B6D4',
+      nav: 'Tasks',
+    },
+    {
+      icon: 'document-text-outline',
+      label: 'Notes',
+      color: '#F97316',
+      nav: 'Notes',
+    },
+    {
+      icon: 'chatbubbles-outline',
+      label: 'Chat',
+      color: '#A78BFA',
+      nav: 'Chat',
+    },
+    { icon: 'cart-outline', label: 'Bazar', color: '#0EA5E9', nav: 'Bazar' },
+    {
+      icon: 'grid-outline',
+      label: 'Categories',
+      color: '#64748B',
+      nav: 'Categories',
+    },
+    {
+      icon: 'settings-outline',
+      label: 'Settings',
+      color: '#64748B',
+      nav: 'Settings',
     },
   ];
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => (navigation as any).openDrawer()}
-            style={styles.menuButton}
-          >
-            <Icon name="menu" size={28} color={colors.text.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Dashboard</Text>
-          <TouchableOpacity style={styles.menuButton}>
-            <Icon
-              name="notifications-outline"
-              size={24}
-              color={colors.text.primary}
-            />
-          </TouchableOpacity>
-        </View>
-        <Spinner text="Loading dashboard..." />
-      </View>
-    );
-  }
+  const greeting = () => {
+    const h = now.getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
 
-  // Error state
-  if (error) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => (navigation as any).openDrawer()}
-            style={styles.menuButton}
-          >
-            <Icon name="menu" size={28} color={colors.text.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Dashboard</Text>
-          <TouchableOpacity style={styles.menuButton}>
-            <Icon
-              name="notifications-outline"
-              size={24}
-              color={colors.text.primary}
-            />
-          </TouchableOpacity>
-        </View>
-        <ErrorState
-          title="Failed to load dashboard"
-          message="Please check your connection and try again"
-          onRetry={refetch}
-        />
-      </View>
-    );
-  }
+  const goTo = (item: QuickAction) => {
+    (navigation as any).navigate(item.nav, item.params ?? {});
+  };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: bgColor }]}>
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + 10,
+            backgroundColor: surfaceC,
+            borderBottomColor: borderC,
+          },
+        ]}
+      >
+        {/* Left: avatar + name */}
+        <View style={styles.headerLeft}>
+          <View style={[styles.avatarRing, { borderColor: '#8B5CF640' }]}>
+            <View style={[styles.avatar, { backgroundColor: '#8B5CF6' }]}>
+              <Text style={styles.avatarLetter}>
+                {(user?.name ?? 'U').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.headerUserInfo}>
+            <Text style={[styles.greeting, { color: textSec }]}>{greeting()}</Text>
+            <Text style={[styles.userName, { color: textPri }]} numberOfLines={1}>
+              {user?.name || 'User'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Right: notification bell + badge */}
         <TouchableOpacity
-          onPress={() => (navigation as any).openDrawer()}
-          style={styles.menuButton}
+          style={[styles.notifBtn, { backgroundColor: borderC }]}
+          onPress={() => (navigation as any).navigate('NotificationsList')}
         >
-          <Icon name="menu" size={28} color={colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Dashboard</Text>
-        <TouchableOpacity style={styles.menuButton}>
-          <Icon
-            name="notifications-outline"
-            size={24}
-            color={colors.text.primary}
-          />
+          <Icon name="notifications-outline" size={22} color={textPri} />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
       <ScrollView
-        style={styles.content}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 90 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={['#8B5CF6']}
+            tintColor="#8B5CF6"
           />
         }
       >
-        {/* Welcome Card */}
-
-        <Card
-          variant="elevated"
-          style={[styles.welcomeCard, { backgroundColor: colors.primary }]}
-        >
-          <View style={styles.welcomeContent}>
-            <View>
-              <Text
-                style={[
-                  textStyles.caption,
-                  { color: 'rgba(255,255,255,0.8)', marginBottom: spacing.xs },
-                ]}
-              >
-                Welcome back! 👋
-              </Text>
-              <Text style={[textStyles.h3, { color: colors.text.inverse }]}>
-                {user?.name || 'User'}
-              </Text>
-            </View>
-            <View style={styles.welcomeIcon}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {user?.name?.charAt(0).toUpperCase() || 'U'}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </Card>
-        <IncomeExpenseWidget />
-        {/* OR separate widgets */}
-        <IncomeWidget />
-        <BudgetAlertCard />
-        <BudgetWidget />
-        <SavingsGoalsWidget />
-        <TasksWidget />
-        {/* Stats Overview */}
-        <View style={styles.statsContainer}>
-          {/* This Month */}
-          <Card variant="elevated" style={styles.statCard}>
-            <View style={styles.statHeader}>
-              <View
-                style={[
-                  styles.statIconContainer,
-                  { backgroundColor: `${colors.danger}15` },
-                ]}
-              >
-                <Icon name="trending-down" size={20} color={colors.danger} />
-              </View>
-              <Text style={styles.statLabel}>This Month</Text>
-            </View>
-            <Text style={[styles.statValue, { color: colors.danger }]}>
-              {formatCurrency(stats?.currentMonth?.totalExpenses || 0)}
-            </Text>
-            <View style={styles.statFooter}>
-              <Text style={styles.statSubtext}>
-                {stats?.currentMonth?.transactionCount || 0} transactions
-              </Text>
-              {stats?.previousMonth?.totalExpenses > 0 && (
-                <View style={styles.statChange}>
-                  <Icon
-                    name={
-                      stats?.currentMonth?.totalExpenses >
-                      stats?.previousMonth?.totalExpenses
-                        ? 'arrow-up'
-                        : 'arrow-down'
-                    }
-                    size={12}
-                    color={
-                      stats?.currentMonth?.totalExpenses >
-                      stats?.previousMonth?.totalExpenses
-                        ? colors.danger
-                        : colors.success
-                    }
-                  />
-                  <Text
+        {/* ── Quick Actions ───────────────────────────────────────── */}
+        <View style={[styles.section, { marginTop: 12 }]}>
+          <Text style={[styles.sectionTitle, { color: textPri }]}>
+            Quick Actions
+          </Text>
+          <View
+            style={[
+              styles.actionsGrid,
+              { backgroundColor: surfaceC, borderColor: borderC },
+            ]}
+          >
+            {ACTIONS.map((item, idx) => (
+                <TouchableOpacity
+                  key={`${item.label}-${idx}`}
+                  style={styles.actionItem}
+                  onPress={() => goTo(item)}
+                  activeOpacity={0.7}
+                >
+                  <View
                     style={[
-                      styles.statChangeText,
-                      {
-                        color:
-                          stats?.currentMonth?.totalExpenses >
-                          stats?.previousMonth?.totalExpenses
-                            ? colors.danger
-                            : colors.success,
-                      },
+                      styles.actionIconWrap,
+                      { backgroundColor: item.color + '18' },
                     ]}
                   >
-                    {Math.abs(
-                      ((stats?.currentMonth?.totalExpenses -
-                        stats?.previousMonth?.totalExpenses) /
-                        stats?.previousMonth?.totalExpenses) *
-                        100,
-                    ).toFixed(1)}
-                    %
+                    <Icon name={item.icon} size={22} color={item.color} />
+                  </View>
+                  <Text
+                    style={[styles.actionLabel, { color: textPri }]}
+                    numberOfLines={1}
+                  >
+                    {item.label}
                   </Text>
-                </View>
-              )}
-            </View>
-          </Card>
-
-          {/* Today */}
-          <Card variant="elevated" style={styles.statCard}>
-            <View style={styles.statHeader}>
-              <View
-                style={[
-                  styles.statIconContainer,
-                  { backgroundColor: `${colors.info}15` },
-                ]}
-              >
-                <Icon name="calendar" size={20} color={colors.info} />
-              </View>
-              <Text style={styles.statLabel}>Today</Text>
-            </View>
-            <Text style={[styles.statValue, { color: colors.info }]}>
-              {formatCurrency(stats?.today?.totalExpenses || 0)}
-            </Text>
-            <View style={styles.statFooter}>
-              <Text style={styles.statSubtext}>
-                {stats?.today?.transactionCount || 0} transactions
-              </Text>
-            </View>
-          </Card>
-        </View>
-
-        {/* Weekly Stats */}
-        <View style={styles.statsContainer}>
-          {/* This Week */}
-          <Card variant="elevated" style={styles.statCard}>
-            <View style={styles.statHeader}>
-              <View
-                style={[
-                  styles.statIconContainer,
-                  { backgroundColor: `${colors.warning}15` },
-                ]}
-              >
-                <Icon
-                  name="calendar-outline"
-                  size={20}
-                  color={colors.warning}
-                />
-              </View>
-              <Text style={styles.statLabel}>This Week</Text>
-            </View>
-            <Text style={[styles.statValue, { color: colors.warning }]}>
-              {formatCurrency(stats?.currentWeek?.totalExpenses || 0)}
-            </Text>
-            <View style={styles.statFooter}>
-              <Text style={styles.statSubtext}>
-                {stats?.currentWeek?.transactionCount || 0} transactions
-              </Text>
-            </View>
-          </Card>
-
-          {/* Average Daily */}
-          <Card variant="elevated" style={styles.statCard}>
-            <View style={styles.statHeader}>
-              <View
-                style={[
-                  styles.statIconContainer,
-                  { backgroundColor: `${colors.success}15` },
-                ]}
-              >
-                <Icon name="trending-up" size={20} color={colors.success} />
-              </View>
-              <Text style={styles.statLabel}>Daily Avg</Text>
-            </View>
-            <Text style={[styles.statValue, { color: colors.success }]}>
-              {formatCurrency(stats?.averageDaily || 0)}
-            </Text>
-            <View style={styles.statFooter}>
-              <Text style={styles.statSubtext}>This month</Text>
-            </View>
-          </Card>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
-            {quickActions.map(action => (
-              <TouchableOpacity
-                key={action.id}
-                style={styles.actionCard}
-                onPress={action.onPress}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[
-                    styles.actionIcon,
-                    { backgroundColor: `${action.color}20` },
-                  ]}
-                >
-                  <Icon name={action.icon} size={28} color={action.color} />
-                </View>
-                <Text style={styles.actionText}>{action.label}</Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Top Categories */}
-        {stats?.topCategories && stats.topCategories.length > 0 && (
+        {/* ── Monthly Summary ────────────────────────────────────── */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionHeading, { color: textPri }]}>Monthly Summary</Text>
+          <Text style={[styles.sectionPeriod, { color: textSec }]}>{monthLabel}</Text>
+        </View>
+        <View style={styles.row3}>
+          <TouchableOpacity
+            style={[styles.overviewCard, { backgroundColor: surfaceC, borderColor: borderC }]}
+            onPress={() => (navigation as any).navigate('Expenses')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.overviewIcon, { backgroundColor: '#EF444415' }]}>
+              <Icon name="trending-down" size={16} color="#EF4444" />
+            </View>
+            <Text style={[styles.overviewLabel, { color: textSec }]}>Expenses</Text>
+            <Text style={[styles.overviewAmount, { color: '#EF4444' }]} numberOfLines={1}>
+              {formatCurrency(monthExpenses)}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.overviewCard, { backgroundColor: surfaceC, borderColor: borderC }]}
+            onPress={() => (navigation as any).navigate('Income')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.overviewIcon, { backgroundColor: '#10B98115' }]}>
+              <Icon name="trending-up" size={16} color="#10B981" />
+            </View>
+            <Text style={[styles.overviewLabel, { color: textSec }]}>Income</Text>
+            <Text style={[styles.overviewAmount, { color: '#10B981' }]} numberOfLines={1}>
+              {formatCurrency(monthIncome)}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={[styles.overviewCard, { backgroundColor: surfaceC, borderColor: borderC }]}>
+            <View style={[styles.overviewIcon, { backgroundColor: net >= 0 ? '#6366F115' : '#EF444415' }]}>
+              <Icon name="analytics" size={16} color={net >= 0 ? '#6366F1' : '#EF4444'} />
+            </View>
+            <Text style={[styles.overviewLabel, { color: textSec }]}>Net</Text>
+            <Text style={[styles.overviewAmount, { color: net >= 0 ? '#6366F1' : '#EF4444' }]} numberOfLines={1}>
+              {net >= 0 ? '+' : ''}{formatCurrency(net)}
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Overview (Budget · Tasks · Savings) ───────────────── */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionHeading, { color: textPri }]}>Overview</Text>
+          <Text style={[styles.sectionPeriod, { color: textSec }]}>Budget · Tasks · Savings</Text>
+        </View>
+        <View style={styles.row3}>
+          <TouchableOpacity
+            style={[styles.summaryCard, { backgroundColor: surfaceC, borderColor: borderC }]}
+            onPress={() => (navigation as any).navigate('Budget')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.overviewIcon, { backgroundColor: '#8B5CF615' }]}>
+              <Icon name="pie-chart" size={16} color="#8B5CF6" />
+            </View>
+            <Text style={[styles.overviewLabel, { color: textSec }]}>Budget</Text>
+            {totalBudget > 0 ? (
+              <>
+                <View style={[styles.progressTrack, { backgroundColor: borderC, marginVertical: 4 }]}>
+                  <View style={[styles.progressFill, { width: `${budgetPct}%` as any, backgroundColor: budgetOver ? '#EF4444' : '#8B5CF6' }]} />
+                </View>
+                <Text style={[styles.summaryVal, { color: budgetOver ? '#EF4444' : '#8B5CF6' }]}>
+                  {budgetPct.toFixed(0)}%
+                </Text>
+              </>
+            ) : (
+              <Text style={[styles.summaryVal, { color: textSec }]}>—</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.summaryCard, { backgroundColor: surfaceC, borderColor: borderC }]}
+            onPress={() => (navigation as any).navigate('Tasks')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.overviewIcon, { backgroundColor: '#06B6D415' }]}>
+              <Icon name="checkmark-circle" size={16} color="#06B6D4" />
+            </View>
+            <Text style={[styles.overviewLabel, { color: textSec }]}>Tasks</Text>
+            <Text style={[styles.summaryVal, { color: '#06B6D4' }]}>{pendingTasks}</Text>
+            <Text style={[styles.summarySubVal, { color: textSec }]} numberOfLines={1}>
+              {completedTasks} done{overdueTasks > 0 ? ` · ${overdueTasks} late` : ''}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.summaryCard, { backgroundColor: surfaceC, borderColor: borderC }]}
+            onPress={() => (navigation as any).navigate('Savings')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.overviewIcon, { backgroundColor: '#F59E0B15' }]}>
+              <Icon name="wallet" size={16} color="#F59E0B" />
+            </View>
+            <Text style={[styles.overviewLabel, { color: textSec }]}>Savings</Text>
+            <Text style={[styles.summaryVal, { color: '#F59E0B' }]} numberOfLines={1}>
+              {formatCurrency(totalSaved)}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Top Spending ────────────────────────────────────────── */}
+        {topCategories.length > 0 && (
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Top Categories</Text>
+            <View style={styles.sectionRow}>
+              <Text style={[styles.sectionTitle, { color: textPri }]}>
+                Top Spending
+              </Text>
               <TouchableOpacity
-                onPress={() => navigation.navigate('Expenses' as never)}
+                onPress={() => (navigation as any).navigate('Expenses')}
               >
                 <Text style={styles.seeAll}>See All</Text>
               </TouchableOpacity>
             </View>
-            <Card variant="elevated">
-              {stats.topCategories
-                .slice(0, 5)
-                .map((cat: any, index: number) => {
-                  const percentage =
-                    (cat.total / stats.currentMonth?.totalExpenses) * 100;
-                  return (
+            <View
+              style={[
+                styles.listCard,
+                { backgroundColor: surfaceC, borderColor: borderC },
+              ]}
+            >
+              {topCategories.slice(0, 4).map((cat: any, idx: number) => {
+                const pct =
+                  cat.percentage ??
+                  (monthExpenses > 0 ? (cat.total / monthExpenses) * 100 : 0);
+                const color = cat.categoryColor || '#8B5CF6';
+                return (
+                  <View
+                    key={cat.categoryId ?? idx}
+                    style={[
+                      styles.listRow,
+                      idx < Math.min(topCategories.length, 4) - 1 && {
+                        borderBottomWidth: 1,
+                        borderBottomColor: borderC,
+                      },
+                    ]}
+                  >
                     <View
-                      key={cat._id || index}
                       style={[
-                        styles.categoryRow,
-                        index < Math.min(stats.topCategories.length - 1, 4) &&
-                          styles.categoryRowBorder,
+                        styles.catIcon,
+                        { backgroundColor: color + '20' },
                       ]}
                     >
-                      <View style={styles.categoryLeft}>
+                      <Icon
+                        name={cat.categoryIcon || 'wallet-outline'}
+                        size={20}
+                        color={color}
+                      />
+                    </View>
+                    <View style={styles.catInfo}>
+                      <Text style={[styles.catName, { color: textPri }]}>
+                        {cat.categoryName}
+                      </Text>
+                      <View
+                        style={[
+                          styles.progressTrack,
+                          { backgroundColor: borderC, marginTop: 5 },
+                        ]}
+                      >
                         <View
                           style={[
-                            styles.categoryIcon,
+                            styles.progressFill,
                             {
-                              backgroundColor: `${
-                                cat.color || colors.primary
-                              }15`,
+                              width: `${Math.min(pct, 100)}%` as any,
+                              backgroundColor: color,
                             },
                           ]}
-                        >
-                          <Text style={styles.categoryEmoji}>
-                            {cat.icon || '💰'}
-                          </Text>
-                        </View>
-                        <View style={styles.categoryInfo}>
-                          <Text style={styles.categoryName}>{cat.name}</Text>
-                          <View style={styles.progressBarContainer}>
-                            <View style={styles.progressBarBg}>
-                              <View
-                                style={[
-                                  styles.progressBarFill,
-                                  {
-                                    width: `${Math.min(percentage, 100)}%`,
-                                    backgroundColor:
-                                      cat.color || colors.primary,
-                                  },
-                                ]}
-                              />
-                            </View>
-                            <Text style={styles.progressText}>
-                              {percentage.toFixed(0)}%
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                      <View style={styles.categoryRight}>
-                        <Text
-                          style={[
-                            styles.categoryAmount,
-                            { color: colors.danger },
-                          ]}
-                        >
-                          {formatCurrency(cat.total)}
-                        </Text>
-                        <Text style={styles.categoryCount}>
-                          {cat.count} items
-                        </Text>
+                        />
                       </View>
                     </View>
-                  );
-                })}
-            </Card>
+                    <View style={styles.catRight}>
+                      <Text style={[styles.catAmount, { color: '#EF4444' }]}>
+                        {formatCurrency(cat.total)}
+                      </Text>
+                      <Text style={[styles.catPct, { color: textSec }]}>
+                        {pct.toFixed(0)}%
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
           </View>
         )}
 
-        {/* Recent Transactions */}
-        {stats?.recentTransactions && stats.recentTransactions.length > 0 && (
+        {/* ── Recent Activity ─────────────────────────────────────── */}
+        {recentTxns.length > 0 && (
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Transactions</Text>
+            <View style={styles.sectionRow}>
+              <Text style={[styles.sectionTitle, { color: textPri }]}>
+                Recent Activity
+              </Text>
               <TouchableOpacity
-                onPress={() => navigation.navigate('Expenses' as never)}
+                onPress={() => (navigation as any).navigate('Expenses')}
               >
                 <Text style={styles.seeAll}>See All</Text>
               </TouchableOpacity>
             </View>
-            <Card variant="elevated">
-              {stats.recentTransactions
-                .slice(0, 5)
-                .map((txn: any, index: number) => (
+            <View
+              style={[
+                styles.listCard,
+                { backgroundColor: surfaceC, borderColor: borderC },
+              ]}
+            >
+              {recentTxns.slice(0, 5).map((txn: any, idx: number) => {
+                // virtual 'category' field from populate, or fallback
+                const catRaw = txn.category;
+                const cat = Array.isArray(catRaw) ? catRaw[0] || {} : catRaw || {};
+                return (
                   <TouchableOpacity
-                    key={txn._id}
+                    key={txn._id ?? idx}
                     style={[
-                      styles.transactionRow,
-                      index <
-                        Math.min(stats.recentTransactions.length - 1, 4) &&
-                        styles.categoryRowBorder,
+                      styles.listRow,
+                      idx < Math.min(recentTxns.length, 5) - 1 && {
+                        borderBottomWidth: 1,
+                        borderBottomColor: borderC,
+                      },
                     ]}
                     onPress={() =>
-                      (navigation as any).navigate('AddExpense', {
-                        mode: 'edit',
+                      (navigation as any).navigate('ExpenseDetails', {
                         expenseId: txn._id,
                       })
                     }
                     activeOpacity={0.7}
                   >
-                    <View style={styles.transactionLeft}>
-                      <View
-                        style={[
-                          styles.transactionIcon,
-                          {
-                            backgroundColor: `${
-                              txn.categoryId?.color || colors.primary
-                            }15`,
-                          },
-                        ]}
-                      >
-                        <Text style={{ fontSize: 20 }}>
-                          {txn.categoryId?.icon || '💰'}
-                        </Text>
-                      </View>
-                      <View>
-                        <Text
-                          style={styles.transactionDescription}
-                          numberOfLines={1}
-                        >
-                          {txn.description || 'No description'}
-                        </Text>
-                        <Text style={styles.transactionMeta}>
-                          {txn.categoryId?.name || 'Uncategorized'} •{' '}
-                          {formatRelativeTime(txn.date)}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text
+                    <View
                       style={[
-                        styles.transactionAmount,
-                        { color: colors.danger },
+                        styles.catIcon,
+                        { backgroundColor: (cat.color || '#8B5CF6') + '20' },
                       ]}
                     >
+                      <Icon
+                        name={cat.icon || 'wallet-outline'}
+                        size={20}
+                        color={cat.color || '#8B5CF6'}
+                      />
+                    </View>
+                    <View style={styles.catInfo}>
+                      <Text
+                        style={[styles.catName, { color: textPri }]}
+                        numberOfLines={1}
+                      >
+                        {txn.description || 'No description'}
+                      </Text>
+                      <Text style={[styles.catPct, { color: textSec }]}>
+                        {cat.name || 'Uncategorized'} ·{' '}
+                        {formatRelativeTime(txn.date)}
+                      </Text>
+                    </View>
+                    <Text style={[styles.catAmount, { color: '#EF4444' }]}>
                       {formatCurrency(txn.amount)}
                     </Text>
                   </TouchableOpacity>
-                ))}
-            </Card>
-          </View>
-        )}
-
-        {/* Budget Overview */}
-        {stats?.budgetOverview && stats.budgetOverview.totalBudget > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Budget Overview</Text>
-              <TouchableOpacity
-                onPress={() => (navigation as any).navigate('Budget')}
-              >
-                <Text style={styles.seeAll}>View Budget</Text>
-              </TouchableOpacity>
+                );
+              })}
             </View>
-            <Card variant="elevated">
-              <View style={styles.budgetHeader}>
-                <View>
-                  <Text style={styles.budgetLabel}>Monthly Budget</Text>
-                  <Text
-                    style={[styles.budgetAmount, { color: colors.primary }]}
-                  >
-                    {formatCurrency(stats.budgetOverview.totalBudget)}
-                  </Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.budgetLabel}>Remaining</Text>
-                  <Text
-                    style={[
-                      styles.budgetAmount,
-                      {
-                        color:
-                          stats.budgetOverview.remaining > 0
-                            ? colors.success
-                            : colors.danger,
-                      },
-                    ]}
-                  >
-                    {formatCurrency(Math.abs(stats.budgetOverview.remaining))}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.budgetProgressContainer}>
-                <View style={styles.budgetProgressBar}>
-                  <View
-                    style={[
-                      styles.budgetProgressFill,
-                      {
-                        width: `${Math.min(
-                          (stats.budgetOverview.spent /
-                            stats.budgetOverview.totalBudget) *
-                            100,
-                          100,
-                        )}%`,
-                        backgroundColor:
-                          stats.budgetOverview.spent >
-                          stats.budgetOverview.totalBudget
-                            ? colors.danger
-                            : colors.primary,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.budgetProgressText}>
-                  {formatPercentage(
-                    stats.budgetOverview.spent,
-                    stats.budgetOverview.totalBudget,
-                  )}{' '}
-                  used
-                </Text>
-              </View>
-
-              {stats.budgetOverview.spent >
-                stats.budgetOverview.totalBudget && (
-                <View
-                  style={[
-                    styles.budgetAlert,
-                    { backgroundColor: `${colors.danger}10` },
-                  ]}
-                >
-                  <Icon name="warning" size={16} color={colors.danger} />
-                  <Text
-                    style={[styles.budgetAlertText, { color: colors.danger }]}
-                  >
-                    You've exceeded your budget by{' '}
-                    {formatCurrency(
-                      stats.budgetOverview.spent -
-                        stats.budgetOverview.totalBudget,
-                    )}
-                  </Text>
-                </View>
-              )}
-            </Card>
           </View>
         )}
-
-        {/* Spending Insights */}
-        {stats?.insights && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Insights</Text>
-            <Card variant="elevated">
-              {stats.insights.highestSpendingDay && (
-                <View style={styles.insightRow}>
-                  <Icon name="calendar" size={20} color={colors.info} />
-                  <Text style={styles.insightText}>
-                    Your highest spending day was{' '}
-                    <Text style={{ fontWeight: '600' }}>
-                      {stats.insights.highestSpendingDay.day}
-                    </Text>{' '}
-                    with{' '}
-                    {formatCurrency(stats.insights.highestSpendingDay.amount)}
-                  </Text>
-                </View>
-              )}
-
-              {stats.insights.mostExpensiveCategory && (
-                <View style={[styles.insightRow, { marginTop: spacing.md }]}>
-                  <Icon name="trending-up" size={20} color={colors.warning} />
-                  <Text style={styles.insightText}>
-                    You spent the most on{' '}
-                    <Text style={{ fontWeight: '600' }}>
-                      {stats.insights.mostExpensiveCategory.name}
-                    </Text>{' '}
-                    this month
-                  </Text>
-                </View>
-              )}
-
-              {stats.insights.comparedToLastMonth && (
-                <View style={[styles.insightRow, { marginTop: spacing.md }]}>
-                  <Icon
-                    name={
-                      stats.insights.comparedToLastMonth.trend === 'up'
-                        ? 'arrow-up'
-                        : 'arrow-down'
-                    }
-                    size={20}
-                    color={
-                      stats.insights.comparedToLastMonth.trend === 'up'
-                        ? colors.danger
-                        : colors.success
-                    }
-                  />
-                  <Text style={styles.insightText}>
-                    Spending is{' '}
-                    <Text style={{ fontWeight: '600' }}>
-                      {stats.insights.comparedToLastMonth.percentage}%{' '}
-                      {stats.insights.comparedToLastMonth.trend}
-                    </Text>{' '}
-                    compared to last month
-                  </Text>
-                </View>
-              )}
-            </Card>
-          </View>
-        )}
-
-        <View style={{ height: 100 }} />
       </ScrollView>
     </View>
   );
 };
 
-const createStyles = (
-  colors: any,
-  textStyles: any,
-  spacing: any,
-  borderRadius: any,
-  shadows: any,
-) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    menuButton: {
-      width: 40,
-      height: 40,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    headerTitle: {
-      ...textStyles.h3,
-      color: colors.text.primary,
-    },
-    content: {
-      flex: 1,
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.lg,
-    },
-    welcomeCard: {
-      marginBottom: spacing.lg,
-    },
-    welcomeContent: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    welcomeIcon: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    avatar: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: colors.background,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    avatarText: {
-      ...textStyles.h4,
-      color: colors.primary,
-      fontWeight: '700',
-    },
-    statsContainer: {
-      flexDirection: 'row',
-      gap: spacing.md,
-      marginBottom: spacing.lg,
-    },
-    statCard: {
-      flex: 1,
-    },
-    statHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: spacing.md,
-    },
-    statIconContainer: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: spacing.sm,
-    },
-    statLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-    },
-    statValue: {
-      ...textStyles.h3,
-      fontWeight: '700',
-      marginBottom: spacing.xs,
-    },
-    statFooter: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    statSubtext: {
-      ...textStyles.caption,
-      color: colors.text.tertiary,
-    },
-    statChange: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 2,
-    },
-    statChangeText: {
-      ...textStyles.caption,
-      fontWeight: '600',
-    },
-    section: {
-      marginBottom: spacing.xl,
-    },
-    sectionHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacing.md,
-    },
-    sectionTitle: {
-      ...textStyles.h4,
-      color: colors.text.primary,
-    },
-    seeAll: {
-      ...textStyles.caption,
-      color: colors.primary,
-      fontWeight: '600',
-    },
-    actionsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.md,
-    },
-    actionCard: {
-      width: (width - spacing.lg * 2 - spacing.md) / 2,
-      alignItems: 'center',
-      paddingVertical: spacing.lg,
-      backgroundColor: colors.surface,
-      borderRadius: borderRadius.lg,
-      ...shadows.sm,
-    },
-    actionIcon: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: spacing.sm,
-    },
-    actionText: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-    },
-    categoryRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: spacing.md,
-    },
-    categoryRowBorder: {
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    categoryLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-    },
-    categoryIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: spacing.md,
-    },
-    categoryEmoji: {
-      fontSize: 20,
-    },
-    categoryInfo: {
-      flex: 1,
-    },
-    categoryName: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      marginBottom: spacing.xs,
-    },
-    progressBarContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    progressBarBg: {
-      flex: 1,
-      height: 4,
-      backgroundColor: colors.border,
-      borderRadius: borderRadius.full,
-      overflow: 'hidden',
-    },
-    progressBarFill: {
-      height: '100%',
-      borderRadius: borderRadius.full,
-    },
-    progressText: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      minWidth: 35,
-      textAlign: 'right',
-    },
-    categoryRight: {
-      alignItems: 'flex-end',
-    },
-    categoryAmount: {
-      ...textStyles.h4,
-      fontWeight: '700',
-      marginBottom: 2,
-    },
-    categoryCount: {
-      ...textStyles.caption,
-      color: colors.text.tertiary,
-    },
-    transactionRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: spacing.md,
-    },
-    transactionLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-      marginRight: spacing.md,
-    },
-    transactionIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: spacing.md,
-    },
-    transactionDescription: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      marginBottom: 2,
-    },
-    transactionMeta: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-    },
-    transactionAmount: {
-      ...textStyles.h4,
-      fontWeight: '700',
-    },
-    budgetHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: spacing.lg,
-    },
-    budgetLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      marginBottom: spacing.xs,
-    },
-    budgetAmount: {
-      ...textStyles.h3,
-      fontWeight: '700',
-    },
-    budgetProgressContainer: {
-      marginBottom: spacing.md,
-    },
-    budgetProgressBar: {
-      height: 8,
-      backgroundColor: colors.border,
-      borderRadius: borderRadius.full,
-      overflow: 'hidden',
-      marginBottom: spacing.sm,
-    },
-    budgetProgressFill: {
-      height: '100%',
-      borderRadius: borderRadius.full,
-    },
-    budgetProgressText: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      textAlign: 'center',
-    },
-    budgetAlert: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: spacing.md,
-      borderRadius: borderRadius.md,
-      gap: spacing.sm,
-    },
-    budgetAlertText: {
-      ...textStyles.caption,
-      flex: 1,
-    },
-    insightRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.md,
-    },
-    insightText: {
-      ...textStyles.body,
-      color: colors.text.secondary,
-      flex: 1,
-      lineHeight: 22,
-    },
-  });
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+// section paddingHorizontal:16 × 2 = 32, grid borderWidth:1 × 2 = 2
+const ITEM_W = (width - 34) / 4; // 3 columns
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  headerUserInfo: { alignItems: 'flex-start' },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notifBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: { fontSize: 9, fontWeight: '700', color: '#FFFFFF' },
+
+  greeting: { fontSize: 11, letterSpacing: 0.2 },
+  userName: { fontSize: 16, fontWeight: '700' },
+  avatarRing: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarLetter: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+
+  // Section headers
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    marginTop: 8,
+  },
+  sectionHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    marginTop: 12,
+  },
+  sectionHeading: { fontSize: 14, fontWeight: '700' },
+  sectionPeriod:  { fontSize: 12 },
+
+  // 3-col overview
+  row3: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 10,
+    marginBottom: 12,
+  },
+  overviewCard: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    gap: 4,
+  },
+  overviewIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  overviewLabel: { fontSize: 11, fontWeight: '500' },
+  overviewAmount: { fontSize: 14, fontWeight: '700' },
+
+  // Summary row (Budget / Tasks / Savings)
+  summaryCard: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    gap: 3,
+  },
+  summaryVal:    { fontSize: 14, fontWeight: '700' },
+  summarySubVal: { fontSize: 10 },
+
+  // Savings card
+  savingsCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+  },
+  savingsTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  savingsRight: { alignItems: 'flex-end' },
+  savingsAmount: { fontSize: 16, fontWeight: '700' },
+  savingsSub: { fontSize: 11, marginTop: 1 },
+
+  // Budget card
+  budgetCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+  },
+  budgetTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  budgetLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  budgetTitle: { fontSize: 14, fontWeight: '600' },
+  budgetPct: { fontSize: 15, fontWeight: '700' },
+  budgetBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  budgetSub: { fontSize: 12 },
+
+  // Task card
+  taskCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  taskTitle: { fontSize: 14, fontWeight: '600', flex: 0 },
+  taskChips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  chipText: { fontSize: 11, fontWeight: '600' },
+
+  progressTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 3 },
+
+  // Quick actions grid
+  section: { paddingHorizontal: 16, marginBottom: 20 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 12 },
+  sectionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  seeAll: { fontSize: 13, color: '#8B5CF6', fontWeight: '600' },
+
+  actionsGrid: {
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  actionItem: {
+    width: ITEM_W,
+    paddingVertical: 16,
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionLabel: { fontSize: 11, fontWeight: '500', textAlign: 'center' },
+
+  // List cards
+  listCard: { borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    gap: 12,
+  },
+  catIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  catInfo: { flex: 1 },
+  catName: { fontSize: 13, fontWeight: '600' },
+  catRight: { alignItems: 'flex-end' },
+  catAmount: { fontSize: 13, fontWeight: '700' },
+  catPct: { fontSize: 11, marginTop: 2 },
+});
 
 export default DashboardScreen;

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1075111655508",
+    "project_id": "lifetrack-pro",
+    "storage_bucket": "lifetrack-pro.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1075111655508:android:8fb2b85247fdadf0d355c1",
+        "android_client_info": {
+          "package_name": "com.lifetrackapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCcbePAc6rlF15gOG922MG97ud8o0WAeDY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -110,6 +110,9 @@ export const useCreateExpense = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: expenseKeys.lists() });
       queryClient.invalidateQueries({ queryKey: expenseKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['savings'] });
       Toast.show({
         type: 'success',
         text1: 'Success',
@@ -140,10 +143,10 @@ export const useUpdateExpense = () => {
     }) => expenseApi.update(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: expenseKeys.lists() });
-      queryClient.invalidateQueries({
-        queryKey: expenseKeys.detail(variables.id),
-      });
+      queryClient.invalidateQueries({ queryKey: expenseKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: expenseKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       Toast.show({
         type: 'success',
         text1: 'Success',
@@ -169,6 +172,8 @@ export const useDeleteExpense = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: expenseKeys.lists() });
       queryClient.invalidateQueries({ queryKey: expenseKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       Toast.show({
         type: 'success',
         text1: 'Success',

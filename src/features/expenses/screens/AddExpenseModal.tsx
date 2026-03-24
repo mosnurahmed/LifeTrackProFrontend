@@ -54,7 +54,7 @@ const AddExpenseModal: React.FC = () => {
   const [selectedImages, setSelectedImages] = useState<any[]>([]);
 
   // Queries
-  const { data: categoryRes, isLoading: categoriesLoading } = useCategories();
+  const { data: categoryRes, isLoading: categoriesLoading } = useCategories('expense');
   const { data: expenseData, isLoading: expenseLoading } =
     useExpense(expenseId);
   const createMutation = useCreateExpense();
@@ -150,9 +150,11 @@ const AddExpenseModal: React.FC = () => {
 
   if (categoriesLoading || (isEditMode && expenseLoading)) {
     return (
-      <View style={styles.container}>
-        <Spinner text="Loading..." />
-      </View>
+      <SafeScreen>
+        <View style={styles.container}>
+          <Spinner text="Loading..." />
+        </View>
+      </SafeScreen>
     );
   }
 
@@ -319,85 +321,22 @@ const AddExpenseModal: React.FC = () => {
                 name="paymentMethod"
                 render={({ field: { onChange, value } }) => (
                   <>
-                    <TouchableOpacity
-                      style={[
-                        styles.paymentMethod,
-                        value === 'cash' && styles.paymentMethodSelected,
-                      ]}
-                      onPress={() => onChange('cash')}
-                    >
-                      <Icon
-                        name="cash-outline"
-                        size={24}
-                        color={
-                          value === 'cash'
-                            ? colors.primary
-                            : colors.text.secondary
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.paymentMethodText,
-                          value === 'cash' && styles.paymentMethodTextSelected,
-                        ]}
+                    {[
+                      { key: 'cash', icon: 'cash-outline', label: 'Cash' },
+                      { key: 'card', icon: 'card-outline', label: 'Card' },
+                      { key: 'mobile_banking', icon: 'phone-portrait-outline', label: 'Mobile' },
+                    ].map(pm => (
+                      <TouchableOpacity
+                        key={pm.key}
+                        style={[styles.paymentMethod, value === pm.key && styles.paymentMethodSelected]}
+                        onPress={() => onChange(pm.key)}
                       >
-                        Cash
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.paymentMethod,
-                        value === 'card' && styles.paymentMethodSelected,
-                      ]}
-                      onPress={() => onChange('card')}
-                    >
-                      <Icon
-                        name="card-outline"
-                        size={24}
-                        color={
-                          value === 'card'
-                            ? colors.primary
-                            : colors.text.secondary
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.paymentMethodText,
-                          value === 'card' && styles.paymentMethodTextSelected,
-                        ]}
-                      >
-                        Card
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.paymentMethod,
-                        value === 'mobile_banking' &&
-                          styles.paymentMethodSelected,
-                      ]}
-                      onPress={() => onChange('mobile_banking')}
-                    >
-                      <Icon
-                        name="phone-portrait-outline"
-                        size={24}
-                        color={
-                          value === 'mobile_banking'
-                            ? colors.primary
-                            : colors.text.secondary
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.paymentMethodText,
-                          value === 'mobile_banking' &&
-                            styles.paymentMethodTextSelected,
-                        ]}
-                      >
-                        Mobile
-                      </Text>
-                    </TouchableOpacity>
+                        <Icon name={pm.icon} size={18} color={value === pm.key ? colors.primary : colors.text.secondary} />
+                        <Text style={[styles.paymentMethodText, value === pm.key && styles.paymentMethodTextSelected]}>
+                          {pm.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </>
                 )}
               />
@@ -639,29 +578,30 @@ const createStyles = (
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
     title: {
-      ...textStyles.h3,
+      fontSize: 16,
+      fontWeight: '700',
       color: colors.text.primary,
     },
     content: {
       flex: 1,
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: 16,
     },
     amountSection: {
-      paddingVertical: spacing.xl,
+      paddingVertical: 20,
       alignItems: 'center',
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
     amountLabel: {
-      ...textStyles.caption,
+      fontSize: 12,
       color: colors.text.secondary,
-      marginBottom: spacing.sm,
+      marginBottom: 6,
     },
     amountInputContainer: {
       flexDirection: 'row',
@@ -669,48 +609,50 @@ const createStyles = (
       justifyContent: 'center',
     },
     currencySymbol: {
-      ...textStyles.h1,
+      fontSize: 28,
+      fontWeight: '700',
       color: colors.text.primary,
-      marginRight: spacing.sm,
+      marginRight: 4,
     },
     amountTextInput: {
-      ...textStyles.h1,
+      fontSize: 28,
+      fontWeight: '700',
       color: colors.text.primary,
       textAlign: 'center',
-      minWidth: 150,
+      minWidth: 120,
       padding: 0,
     },
     section: {
-      marginTop: spacing.xl,
+      marginTop: 16,
     },
     sectionTitle: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      marginBottom: spacing.md,
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text.secondary,
+      marginBottom: 8,
     },
     categorySelector: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: borderRadius.md,
+      borderRadius: 10,
       backgroundColor: colors.surface,
     },
     categorySelectorText: {
-      ...textStyles.body,
+      fontSize: 14,
       color: colors.text.primary,
       flex: 1,
-      marginLeft: spacing.sm,
+      marginLeft: 8,
     },
     categoryIconSmall: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
       justifyContent: 'center',
       alignItems: 'center',
-      marginRight: spacing.sm,
     },
     // ✅ Budget Info Below Category
     budgetInfo: {
@@ -737,30 +679,30 @@ const createStyles = (
     dateSelector: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: borderRadius.md,
+      borderRadius: 10,
       backgroundColor: colors.surface,
     },
     dateSelectorText: {
-      ...textStyles.body,
+      fontSize: 14,
       color: colors.text.primary,
       flex: 1,
-      marginLeft: spacing.sm,
+      marginLeft: 8,
     },
     paymentMethods: {
       flexDirection: 'row',
-      gap: spacing.md,
+      gap: 10,
     },
     paymentMethod: {
       flex: 1,
       alignItems: 'center',
-      paddingVertical: spacing.md,
+      paddingVertical: 10,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: borderRadius.md,
+      borderRadius: 10,
       backgroundColor: colors.surface,
     },
     paymentMethodSelected: {
@@ -768,9 +710,9 @@ const createStyles = (
       backgroundColor: `${colors.primary}10`,
     },
     paymentMethodText: {
-      ...textStyles.caption,
+      fontSize: 11,
       color: colors.text.secondary,
-      marginTop: spacing.xs,
+      marginTop: 4,
     },
     paymentMethodTextSelected: {
       color: colors.primary,
@@ -779,16 +721,16 @@ const createStyles = (
     recurringButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: borderRadius.md,
+      borderRadius: 10,
       backgroundColor: colors.surface,
-      gap: spacing.sm,
+      gap: 8,
     },
     recurringButtonText: {
-      ...textStyles.body,
+      fontSize: 14,
       color: colors.text.secondary,
     },
     removeRecurring: {
@@ -803,16 +745,17 @@ const createStyles = (
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: spacing.lg,
-      borderWidth: 2,
+      paddingVertical: 14,
+      borderWidth: 1.5,
       borderStyle: 'dashed',
       borderColor: colors.border,
-      borderRadius: borderRadius.md,
-      gap: spacing.sm,
+      borderRadius: 10,
+      gap: 8,
     },
     uploadButtonText: {
-      ...textStyles.body,
+      fontSize: 13,
       color: colors.primary,
+      fontWeight: '500',
     },
     imagesPreview: {
       flexDirection: 'row',
@@ -839,15 +782,15 @@ const createStyles = (
     },
     footer: {
       flexDirection: 'row',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
       borderTopWidth: 1,
       borderTopColor: colors.border,
     },
     errorText: {
-      ...textStyles.caption,
+      fontSize: 12,
       color: colors.danger,
-      marginTop: spacing.xs,
+      marginTop: 4,
     },
     pickerOverlay: {
       flex: 1,

@@ -11,7 +11,7 @@ import {
 } from '../types/chat.types';
 
 // TODO: Update with your backend URL
-const SOCKET_URL = 'http://192.168.1.100:5000';
+const SOCKET_URL = 'http://192.168.110.125:5000';
 
 class SocketService {
   private socket: Socket | null = null;

@@ -27,9 +27,39 @@ export interface SavingsGoal {
   completedAt?: string;
   createdAt: string;
   updatedAt: string;
-  // Virtuals
   progress: number;
   remainingAmount: number;
+}
+
+export interface MonthlyHistoryItem {
+  year: number;
+  month: number;
+  income: number;
+  expenses: number;
+  saved: number;
+  cumulativeBalance: number;
+}
+
+export interface SavingsStats {
+  initialBalance: number;
+  allTimeIncome: number;
+  allTimeExpenses: number;
+  allTimeSurplus: number;
+  totalBalance: number;
+  totalGoals: number;
+  completedGoals: number;
+  activeGoals: number;
+  totalTargetAmount: number;
+  totalCurrentAmount: number;
+  totalRemainingAmount: number;
+  overallProgress: number;
+  year: number;
+  month: number;
+  thisMonthIncome: number;
+  thisMonthExpenses: number;
+  thisMonthSurplus: number;
+  thisMonthSaved: number;
+  monthlyHistory: MonthlyHistoryItem[];
 }
 
 export interface CreateSavingsGoalData {
@@ -44,37 +74,20 @@ export interface CreateSavingsGoalData {
 
 export interface AddContributionData {
   amount: number;
-  date?: string;
   note?: string;
 }
 
 export const savingsGoalApi = {
-  // Get all savings goals
-  getAll: () => client.get('/savings'),
-
-  // Get single savings goal
-  getById: (id: string) => client.get(`/savings/${id}`),
-
-  // Create savings goal
-  create: (data: CreateSavingsGoalData) => client.post('/savings', data),
-
-  // Update savings goal
-  update: (id: string, data: Partial<CreateSavingsGoalData>) =>
-    client.put(`/savings/${id}`, data),
-
-  // Delete savings goal
-  delete: (id: string) => client.delete(`/savings/${id}`),
-
-  // Add contribution
-  addContribution: (id: string, data: AddContributionData) =>
-    client.post(`/savings/${id}/contribute`, data),
-
-  // Get contribution history
-  getContributions: (id: string) =>
-    client.get(`/savings/${id}/contributions`),
-
-  // Get statistics
-  getStats: () => client.get('/savings/stats'),
+  getAll:            ()                                       => client.get('/savings'),
+  getById:           (id: string)                            => client.get(`/savings/${id}`),
+  create:            (data: CreateSavingsGoalData)           => client.post('/savings', data),
+  update:            (id: string, data: Partial<CreateSavingsGoalData>) => client.put(`/savings/${id}`, data),
+  delete:            (id: string)                            => client.delete(`/savings/${id}`),
+  addContribution:   (id: string, data: AddContributionData) => client.post(`/savings/${id}/contribute`, data),
+  getContributions:  (id: string)                            => client.get(`/savings/${id}/contributions`),
+  getStats:          (year: number, month: number)           => client.get('/savings/stats', { params: { year, month } }),
+  getAccount:        ()                                       => client.get('/savings/account'),
+  setAccount:        (initialBalance: number)                => client.put('/savings/account', { initialBalance }),
 };
 
 export default savingsGoalApi;

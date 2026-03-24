@@ -10,22 +10,17 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       // Stale time: Data fresh থাকবে কতক্ষণ
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      
-      // Cache time: Data cache এ থাকবে কতক্ষণ
-      cacheTime: 10 * 60 * 1000, // 10 minutes
-      
-      // Retry: Failed হলে কতবার চেষ্টা করবে
+      staleTime: 30 * 1000, // 30 seconds — data fresh for 30s
+
+      cacheTime: 10 * 60 * 1000, // 10 minutes cache
+
       retry: 2,
-      
-      // Refetch on window focus: App reopen করলে refetch করবে কিনা
-      refetchOnWindowFocus: false,
-      
-      // Refetch on reconnect: Internet আসলে refetch করবে কিনা
+
+      refetchOnWindowFocus: true, // refetch when app comes to foreground
+
       refetchOnReconnect: true,
-      
-      // Refetch on mount: Component mount হলে refetch করবে কিনা
-      refetchOnMount: false
+
+      refetchOnMount: true // refetch stale data on screen mount
     },
     
     mutations: {

@@ -5,6 +5,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
 import Button from '../Button';
 
@@ -20,9 +21,10 @@ const ErrorState: React.FC<ErrorStateProps> = ({
   onRetry,
 }) => {
   const { colors, textStyles, spacing } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View
         style={[
           styles.iconContainer,

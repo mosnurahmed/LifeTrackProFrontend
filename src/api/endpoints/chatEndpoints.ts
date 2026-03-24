@@ -45,6 +45,11 @@ export const deleteMessage = async (messageId: string): Promise<void> => {
   await apiClient.delete(`/chat/message/${messageId}`);
 };
 
+export const searchUserByEmail = async (email: string) => {
+  const response = await apiClient.get('/auth/search', { params: { email } });
+  return response.data.data;
+};
+
 export const searchMessages = async (
   userId: string,
   query: string

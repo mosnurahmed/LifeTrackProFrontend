@@ -5,46 +5,52 @@
 import client from '../client';
 
 export interface BudgetStatus {
-  categoryId: string;
-  categoryName: string;
-  categoryColor: string;
-  categoryIcon: string;
-  budget: number;
-  spent: number;
-  remaining: number;
-  percentage: number;
-  status: 'safe' | 'warning' | 'exceeded';
-  color: string;
+  categoryId:        string;
+  categoryName:      string;
+  categoryColor:     string;
+  categoryIcon:      string;
+  budget:            number | null;
+  budgetSource:      'monthly' | 'default' | 'none';
+  spent:             number;
+  remaining:         number | null;
+  percentage:        number | null;
+  percentageOfTotal: number;
+  status:            'safe' | 'warning' | 'exceeded' | 'unbudgeted';
+  color:             string;
+  isOverride:        boolean;
 }
 
 export interface BudgetSummary {
-  totalBudget: number;
-  totalSpent: number;
-  totalRemaining: number;
-  overallPercentage: number;
+  year:                 number;
+  month:                number;
+  totalBudget:          number | null;
+  totalSpent:           number;
+  totalRemaining:       number | null;
+  overallPercentage:    number | null;
   categoriesWithBudget: number;
   categoriesOverBudget: number;
-  categories: BudgetStatus[];
+  categories:           BudgetStatus[];
 }
 
-export interface UpdateBudgetData {
-  budget: number | null;
-}
+const budgetApi = {
+  getSummary: (year: number, month: number) =>
+    client.get('/budget/summary', { params: { year, month } }),
 
-export const budgetApi = {
-  // Get budget summary (all categories)
-  getSummary: () => client.get('/budget/summary'),
+  getAlerts: (year: number, month: number) =>
+    client.get('/budget/alerts', { params: { year, month } }),
 
-  // Get budget alerts
-  getAlerts: () => client.get('/budget/alerts'),
+  setTotalBudget: (year: number, month: number, totalBudget: number | null) =>
+    client.put('/budget/total', { year, month, totalBudget }),
 
-  // Get single category budget status
-  getCategoryStatus: (categoryId: string) =>
-    client.get(`/budget/category/${categoryId}`),
+  setCategoryMonthlyBudget: (
+    categoryId: string,
+    year: number,
+    month: number,
+    budget: number | null
+  ) => client.put(`/budget/category/${categoryId}/month`, { year, month, budget }),
 
-  // Update category budget
-  updateCategoryBudget: (categoryId: string, data: UpdateBudgetData) =>
-    client.put(`/budget/category/${categoryId}`, data),
+  setCategoryDefaultBudget: (categoryId: string, budget: number | null) =>
+    client.put(`/budget/category/${categoryId}/default`, { budget }),
 };
 
 export default budgetApi;

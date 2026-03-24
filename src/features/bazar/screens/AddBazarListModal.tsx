@@ -1,32 +1,24 @@
 /**
- * Add/Edit Bazar List Modal
+ * Add/Edit Bazar List Modal — Professional Minimal
  */
 
 import React, { useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../../hooks/useTheme';
-import {
-  useCreateList,
-  useUpdateList,
-  useBazarList,
-} from '../../../hooks/api/useBazar';
-import { Button, Input, Spinner } from '../../../components/common';
+import { useCreateList, useUpdateList, useBazarList } from '../../../hooks/api/useBazar';
+import { Button, Input, SafeScreen, Spinner } from '../../../components/common';
 import { bazarListSchema } from '../../../utils/validation/schemas';
 
 const AddBazarListModal: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { colors, textStyles, spacing, borderRadius } = useTheme();
+  const { colors, isDark } = useTheme();
 
   const { mode, listId } = (route.params as any) || { mode: 'create' };
   const isEditMode = mode === 'edit';
@@ -35,18 +27,14 @@ const AddBazarListModal: React.FC = () => {
   const createMutation = useCreateList();
   const updateMutation = useUpdateList();
 
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const borderC = isDark ? '#334155' : '#E2E8F0';
+
   const {
-    control,
-    handleSubmit,
-    setValue,
-    formState: { errors },
+    control, handleSubmit, setValue, formState: { errors },
   } = useForm({
     resolver: yupResolver(bazarListSchema),
-    defaultValues: {
-      title: '',
-      description: '',
-      totalBudget: undefined,
-    },
+    defaultValues: { title: '', description: '', totalBudget: undefined },
   });
 
   useEffect(() => {
@@ -58,151 +46,122 @@ const AddBazarListModal: React.FC = () => {
   }, [list, isEditMode]);
 
   const onSubmit = async (data: any) => {
-    const formattedData = {
+    const formatted = {
       ...data,
       totalBudget: data.totalBudget ? parseFloat(data.totalBudget) : undefined,
     };
-
     if (isEditMode) {
-      await updateMutation.mutateAsync({ id: listId, data: formattedData });
+      await updateMutation.mutateAsync({ id: listId, data: formatted });
     } else {
-      await createMutation.mutateAsync(formattedData);
+      await createMutation.mutateAsync(formatted);
     }
     navigation.goBack();
   };
 
-  const styles = createStyles(colors, textStyles, spacing, borderRadius);
-
   if (listLoading) {
     return (
-      <View style={styles.container}>
-        <Spinner text="Loading..." />
-      </View>
+      <SafeScreen>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <Spinner text="Loading..." />
+        </View>
+      </SafeScreen>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="close" size={28} color={colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.title}>
-          {isEditMode ? 'Edit Shopping List' : 'New Shopping List'}
-        </Text>
-        <View style={{ width: 28 }} />
+    <SafeScreen>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: borderC }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Icon name="close" size={22} color={textPri} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: textPri }]}>
+            {isEditMode ? 'Edit List' : 'New List'}
+          </Text>
+          <View style={{ width: 22 }} />
+        </View>
+
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <Controller
+            control={control}
+            name="title"
+            render={({ field: { onChange, value } }) => (
+              <Input
+                label="List Title *"
+                placeholder="e.g., Weekly Groceries"
+                value={value}
+                onChangeText={onChange}
+                error={errors.title?.message}
+                leftIcon="cart-outline"
+              />
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="description"
+            render={({ field: { onChange, value } }) => (
+              <Input
+                label="Description"
+                placeholder="Add notes about this list"
+                value={value}
+                onChangeText={onChange}
+                type="multiline"
+                leftIcon="text-outline"
+              />
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="totalBudget"
+            render={({ field: { onChange, value } }) => (
+              <Input
+                label="Budget"
+                placeholder="0"
+                type="number"
+                value={value?.toString()}
+                onChangeText={text => onChange(text ? parseFloat(text) : undefined)}
+                leftIcon="cash-outline"
+              />
+            )}
+          />
+        </ScrollView>
+
+        {/* Footer */}
+        <View style={[styles.footer, { borderTopColor: borderC }]}>
+          <Button
+            variant="outline"
+            onPress={() => navigation.goBack()}
+            style={{ flex: 1, marginRight: 6 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onPress={handleSubmit(onSubmit)}
+            loading={createMutation.isPending || updateMutation.isPending}
+            style={{ flex: 1, marginLeft: 6 }}
+          >
+            {isEditMode ? 'Update' : 'Create'}
+          </Button>
+        </View>
       </View>
-
-      <ScrollView style={styles.content}>
-        {/* Title */}
-        <Controller
-          control={control}
-          name="title"
-          render={({ field: { onChange, value } }) => (
-            <Input
-              label="List Title *"
-              placeholder="e.g., Weekly Groceries"
-              value={value}
-              onChangeText={onChange}
-              error={errors.title?.message}
-              leftIcon="cart-outline"
-            />
-          )}
-        />
-
-        {/* Description */}
-        <Controller
-          control={control}
-          name="description"
-          render={({ field: { onChange, value } }) => (
-            <Input
-              label="Description (Optional)"
-              placeholder="Add notes about this list"
-              value={value}
-              onChangeText={onChange}
-              type="multiline"
-              leftIcon="text-outline"
-            />
-          )}
-        />
-
-        {/* Budget */}
-        <Controller
-          control={control}
-          name="totalBudget"
-          render={({ field: { onChange, value } }) => (
-            <Input
-              label="Budget (Optional)"
-              placeholder="0"
-              type="number"
-              value={value?.toString()}
-              onChangeText={text =>
-                onChange(text ? parseFloat(text) : undefined)
-              }
-              leftIcon="cash-outline"
-            />
-          )}
-        />
-      </ScrollView>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Button
-          variant="outline"
-          onPress={() => navigation.goBack()}
-          style={{ flex: 1, marginRight: spacing.sm }}
-        >
-          Cancel
-        </Button>
-        <Button
-          onPress={handleSubmit(onSubmit)}
-          loading={createMutation.isPending || updateMutation.isPending}
-          style={{ flex: 1, marginLeft: spacing.sm }}
-        >
-          {isEditMode ? 'Update' : 'Create'}
-        </Button>
-      </View>
-    </View>
+    </SafeScreen>
   );
 };
 
-const createStyles = (
-  colors: any,
-  textStyles: any,
-  spacing: any,
-  borderRadius: any,
-) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    title: {
-      ...textStyles.h3,
-      color: colors.text.primary,
-    },
-    content: {
-      flex: 1,
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.lg,
-    },
-    footer: {
-      flexDirection: 'row',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-  });
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1,
+  },
+  headerTitle: { fontSize: 16, fontWeight: '700' },
+  content: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },
+  footer: {
+    flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1,
+  },
+});
 
 export default AddBazarListModal;

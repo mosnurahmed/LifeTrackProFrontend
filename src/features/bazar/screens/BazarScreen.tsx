@@ -1,478 +1,297 @@
 /**
- * Bazar Screen - Complete with Real API
+ * Bazar Screen — Shopping Lists (Professional Minimal)
  */
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
-  Alert,
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  RefreshControl, ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../../hooks/useTheme';
 import { useBazarLists, useDeleteList } from '../../../hooks/api/useBazar';
-import { Card, EmptyState, ErrorState } from '../../../components/common';
+import { AppHeader, useConfirm } from '../../../components/common';
 import { SkeletonList } from '../../../components/common/Loading';
 import { formatCurrency } from '../../../utils/formatters';
 
+// ─── List Card ────────────────────────────────────────────────────────────────
+
+const ListCard = ({
+  item, onPress, onLongPress, colors, isDark,
+}: {
+  item: any; onPress: () => void; onLongPress: () => void; colors: any; isDark: boolean;
+}) => {
+  const pct = Math.min(item.completionPercentage ?? 0, 100);
+  const isOver = item.totalBudget && item.totalActualCost > item.totalBudget;
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const borderC = isDark ? '#334155' : '#F1F5F9';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
+  const accent = item.isCompleted ? '#4A9B6E' : colors.primary;
+
+  return (
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: surfaceC, borderColor: borderC }]}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.cardTop}>
+        <View style={[styles.cardIcon, { backgroundColor: accent + '15' }]}>
+          <Icon name={item.isCompleted ? 'checkmark-circle' : 'cart-outline'} size={16} color={accent} />
+        </View>
+        <View style={styles.cardTitleWrap}>
+          <Text style={[styles.cardTitle, { color: textPri }]} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={[styles.cardSub, { color: textSec }]} numberOfLines={1}>
+            {item.completedItems}/{item.totalItems} items{item.description ? ` · ${item.description}` : ''}
+          </Text>
+        </View>
+        <Text style={[styles.pctText, { color: accent }]}>
+          {item.isCompleted ? 'Done' : `${Math.round(pct)}%`}
+        </Text>
+      </View>
+
+      {/* Progress */}
+      <View style={[styles.progressTrack, { backgroundColor: borderC }]}>
+        <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: accent }]} />
+      </View>
+
+      {/* Budget row */}
+      {item.totalBudget ? (
+        <View style={styles.budgetRow}>
+          <Text style={[styles.budgetText, { color: textSec }]}>
+            Budget: <Text style={{ color: textPri, fontWeight: '700' }}>{formatCurrency(item.totalBudget)}</Text>
+          </Text>
+          <Text style={[styles.budgetText, { color: textSec }]}>
+            Spent: <Text style={{ color: isOver ? '#C75050' : textPri, fontWeight: '700' }}>{formatCurrency(item.totalActualCost)}</Text>
+          </Text>
+        </View>
+      ) : item.totalEstimatedCost > 0 ? (
+        <Text style={[styles.estimateText, { color: textSec }]}>
+          Est. {formatCurrency(item.totalEstimatedCost)}
+        </Text>
+      ) : null}
+    </TouchableOpacity>
+  );
+};
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+
 const BazarScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { colors, textStyles, spacing, borderRadius, shadows } = useTheme();
+  const { colors, isDark } = useTheme();
+  const { actionSheet, confirm } = useConfirm();
+  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
 
-  const {
-    data: listsData,
-    isLoading,
-    error,
-    refetch,
-    isRefetching,
-  } = useBazarLists();
+  const { data: listsData, isLoading, refetch, isRefetching } = useBazarLists();
   const deleteMutation = useDeleteList();
 
-  const lists = listsData?.data?.data || [];
+  const allLists = listsData?.data?.data ?? [];
 
-  const styles = createStyles(
-    colors,
-    textStyles,
-    spacing,
-    borderRadius,
-    shadows,
-  );
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
+  const borderC = isDark ? '#334155' : '#F1F5F9';
 
-  const handleAddList = () => {
-    (navigation as any).navigate('AddBazarList', { mode: 'create' });
-  };
+  const stats = useMemo(() => ({
+    total:     allLists.length,
+    active:    allLists.filter((l: any) => !l.isCompleted).length,
+    completed: allLists.filter((l: any) =>  l.isCompleted).length,
+  }), [allLists]);
 
-  const handleEditList = (id: string) => {
-    (navigation as any).navigate('AddBazarList', { mode: 'edit', listId: id });
-  };
+  const filtered = useMemo(() => {
+    if (filter === 'active')    return allLists.filter((l: any) => !l.isCompleted);
+    if (filter === 'completed') return allLists.filter((l: any) =>  l.isCompleted);
+    return allLists;
+  }, [allLists, filter]);
 
-  const handleViewList = (id: string) => {
-    (navigation as any).navigate('BazarListDetails', { listId: id });
-  };
-
-  const handleDeleteList = (id: string, title: string) => {
-    Alert.alert('Delete List', `Are you sure you want to delete "${title}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => deleteMutation.mutate(id),
-      },
-    ]);
+  const handleLongPress = async (item: any) => {
+    const result = await actionSheet({
+      title: item.title,
+      icon: 'cart-outline',
+      actions: [
+        { key: 'edit', label: 'Edit List', icon: 'create-outline' },
+        { key: 'delete', label: 'Delete List', icon: 'trash-outline', variant: 'danger' },
+      ],
+    });
+    if (result === 'edit') {
+      (navigation as any).navigate('AddBazarList', { mode: 'edit', listId: item._id });
+    } else if (result === 'delete') {
+      const ok = await confirm({
+        title: 'Delete List',
+        message: `Delete "${item.title}"? This cannot be undone.`,
+        confirmText: 'Delete',
+        variant: 'danger',
+      });
+      if (ok) deleteMutation.mutate(item._id);
+    }
   };
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Shopping Lists</Text>
-        </View>
-        <SkeletonList count={5} />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Shopping Lists</Text>
-        </View>
-        <ErrorState
-          title="Failed to load lists"
-          message="Please try again"
-          onRetry={refetch}
-        />
-      </View>
-    );
-  }
-
-  if (!lists || lists.length === 0) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Shopping Lists</Text>
-        </View>
-        <EmptyState
-          icon="cart-outline"
-          title="No Shopping Lists"
-          message="Create your first shopping list"
-          actionLabel="Create List"
-          onAction={handleAddList}
-        />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <AppHeader title="Shopping Lists" showDrawer />
+        <SkeletonList count={4} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Shopping Lists</Text>
-        <View style={styles.headerActions}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <AppHeader
+        title="Shopping Lists" showDrawer
+        right={
           <TouchableOpacity
+            style={[styles.statsBtn, { backgroundColor: `${colors.primary}12` }]}
             onPress={() => (navigation as any).navigate('BazarStats')}
-            style={styles.statsButton}
           >
-            <Icon name="stats-chart-outline" size={24} color={colors.primary} />
+            <Icon name="stats-chart-outline" size={18} color={colors.primary} />
           </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Lists */}
-      <FlatList
-        data={lists}
-        keyExtractor={item => item._id}
-        renderItem={({ item }) => (
-          <Card style={styles.listCard}>
-            <TouchableOpacity
-              style={styles.listContent}
-              onPress={() => handleViewList(item._id)}
-              activeOpacity={0.7}
-            >
-              {/* Header */}
-              <View style={styles.listHeader}>
-                <View style={styles.listTitleRow}>
-                  <Icon
-                    name="cart"
-                    size={24}
-                    color={item.isCompleted ? colors.success : colors.primary}
-                  />
-                  <View style={styles.listTitleContainer}>
-                    <Text style={styles.listTitle}>{item.title}</Text>
-                    {item.description && (
-                      <Text style={styles.listDescription} numberOfLines={1}>
-                        {item.description}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-                {item.isCompleted && (
-                  <View style={styles.completedBadge}>
-                    <Icon
-                      name="checkmark-circle"
-                      size={16}
-                      color={colors.success}
-                    />
-                    <Text style={styles.completedText}>Completed</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Progress Bar */}
-              <View style={styles.progressSection}>
-                <View style={styles.progressInfo}>
-                  <Text style={styles.progressText}>
-                    {item.completedItems} of {item.totalItems} items
-                  </Text>
-                  <Text style={styles.progressPercentage}>
-                    {Math.round(item.completionPercentage)}%
-                  </Text>
-                </View>
-                <View style={styles.progressBarContainer}>
-                  <View
-                    style={[
-                      styles.progressBar,
-                      {
-                        width: `${item.completionPercentage}%`,
-                        backgroundColor: item.isCompleted
-                          ? colors.success
-                          : colors.primary,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-
-              {/* Budget Info */}
-              {item.totalBudget && (
-                <View style={styles.budgetSection}>
-                  <View style={styles.budgetRow}>
-                    <Text style={styles.budgetLabel}>Budget:</Text>
-                    <Text style={styles.budgetValue}>
-                      {formatCurrency(item.totalBudget)}
-                    </Text>
-                  </View>
-                  <View style={styles.budgetRow}>
-                    <Text style={styles.budgetLabel}>Spent:</Text>
-                    <Text
-                      style={[
-                        styles.budgetValue,
-                        item.totalActualCost > item.totalBudget && {
-                          color: colors.danger,
-                        },
-                      ]}
-                    >
-                      {formatCurrency(item.totalActualCost)}
-                    </Text>
-                  </View>
-                  <View style={styles.budgetRow}>
-                    <Text style={styles.budgetLabel}>Remaining:</Text>
-                    <Text
-                      style={[
-                        styles.budgetValue,
-                        {
-                          color:
-                            item.budgetRemaining >= 0
-                              ? colors.success
-                              : colors.danger,
-                        },
-                      ]}
-                    >
-                      {formatCurrency(item.budgetRemaining)}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Estimated Cost */}
-              {!item.totalBudget && (
-                <View style={styles.estimateSection}>
-                  <Text style={styles.estimateLabel}>Estimated Total:</Text>
-                  <Text style={styles.estimateValue}>
-                    {formatCurrency(item.totalEstimatedCost)}
-                  </Text>
-                </View>
-              )}
-
-              {/* Actions */}
-              <View style={styles.listActions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleViewList(item._id)}
-                >
-                  <Icon name="eye-outline" size={20} color={colors.primary} />
-                  <Text style={styles.actionButtonText}>View</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleEditList(item._id)}
-                >
-                  <Icon
-                    name="create-outline"
-                    size={20}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.actionButtonText}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleDeleteList(item._id, item.title)}
-                >
-                  <Icon name="trash-outline" size={20} color={colors.danger} />
-                  <Text
-                    style={[styles.actionButtonText, { color: colors.danger }]}
-                  >
-                    Delete
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </Card>
-        )}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
         }
       />
+
+      {/* Summary */}
+      {allLists.length > 0 && (
+        <View style={[styles.summaryRow, { borderBottomColor: borderC }]}>
+          {[
+            { label: 'Total', value: stats.total },
+            { label: 'Active', value: stats.active },
+            { label: 'Done', value: stats.completed },
+          ].map((s, i) => (
+            <View key={s.label} style={[styles.summaryItem, i < 2 && { borderRightWidth: 1, borderRightColor: borderC }]}>
+              <Text style={[styles.summaryVal, { color: textPri }]}>{s.value}</Text>
+              <Text style={[styles.summaryLabel, { color: textSec }]}>{s.label}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Filter */}
+      {allLists.length > 0 && (
+        <View style={[styles.filterBar, { borderBottomColor: borderC }]}>
+          {(['all', 'active', 'completed'] as const).map(f => {
+            const isActive = filter === f;
+            return (
+              <TouchableOpacity
+                key={f}
+                style={[styles.filterTab, isActive && styles.filterTabActive]}
+                onPress={() => setFilter(f)}
+              >
+                <Text style={[styles.filterText, { color: isActive ? colors.primary : textSec }]}>
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      {/* List */}
+      {allLists.length === 0 ? (
+        <View style={styles.emptyWrap}>
+          <View style={[styles.emptyIconWrap, { backgroundColor: `${colors.primary}12` }]}>
+            <Icon name="cart-outline" size={40} color={colors.primary} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: textPri }]}>No Shopping Lists</Text>
+          <Text style={[styles.emptyHint, { color: textSec }]}>
+            Create your first list to track shopping
+          </Text>
+          <TouchableOpacity
+            style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
+            onPress={() => (navigation as any).navigate('AddBazarList', { mode: 'create' })}
+          >
+            <Icon name="add" size={16} color="#FFF" />
+            <Text style={styles.emptyBtnText}>Create List</Text>
+          </TouchableOpacity>
+        </View>
+      ) : filtered.length === 0 ? (
+        <View style={styles.emptyWrap}>
+          <Icon name="filter-outline" size={36} color={textSec} />
+          <Text style={[styles.emptyTitle, { color: textSec }]}>No {filter} lists</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={item => item._id}
+          renderItem={({ item }) => (
+            <ListCard
+              item={item}
+              onPress={() => (navigation as any).navigate('BazarListDetails', { listId: item._id })}
+              onLongPress={() => handleLongPress(item)}
+              colors={colors}
+              isDark={isDark}
+            />
+          )}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch}
+              colors={[colors.primary]} tintColor={colors.primary} />
+          }
+        />
+      )}
 
       {/* FAB */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.primary }]}
-        onPress={handleAddList}
+        onPress={() => (navigation as any).navigate('AddBazarList', { mode: 'create' })}
         activeOpacity={0.8}
       >
-        <Icon name="add" size={28} color={colors.text.inverse} />
+        <Icon name="add" size={22} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );
 };
 
-const createStyles = (
-  colors: any,
-  textStyles: any,
-  spacing: any,
-  borderRadius: any,
-  shadows: any,
-) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    headerTitle: {
-      ...textStyles.h3,
-      color: colors.text.primary,
-    },
-    headerSubtitle: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      marginTop: spacing.xs,
-    },
-    headerActions: {
-      flexDirection: 'row',
-      gap: spacing.md,
-    },
-    statsButton: {
-      padding: spacing.xs,
-    },
-    listContent: {
-      padding: spacing.lg,
-      paddingBottom: 100,
-    },
-    listCard: {
-      marginBottom: spacing.md,
-    },
-    listHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      marginBottom: spacing.md,
-    },
-    listTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-      gap: spacing.sm,
-    },
-    listTitleContainer: {
-      flex: 1,
-    },
-    listTitle: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      marginBottom: spacing.xs,
-    },
-    listDescription: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-    },
-    completedBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: `${colors.success}15`,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-      borderRadius: borderRadius.sm,
-      gap: 4,
-    },
-    completedText: {
-      ...textStyles.caption,
-      color: colors.success,
-      fontSize: 10,
-      fontWeight: '600',
-    },
-    progressSection: {
-      marginBottom: spacing.md,
-    },
-    progressInfo: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: spacing.xs,
-    },
-    progressText: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-    },
-    progressPercentage: {
-      ...textStyles.caption,
-      color: colors.text.primary,
-      fontWeight: '600',
-    },
-    progressBarContainer: {
-      height: 6,
-      backgroundColor: colors.border,
-      borderRadius: borderRadius.full,
-      overflow: 'hidden',
-    },
-    progressBar: {
-      height: '100%',
-      borderRadius: borderRadius.full,
-    },
-    budgetSection: {
-      backgroundColor: colors.background,
-      padding: spacing.md,
-      borderRadius: borderRadius.md,
-      marginBottom: spacing.md,
-      gap: spacing.xs,
-    },
-    budgetRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    budgetLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-    },
-    budgetValue: {
-      ...textStyles.caption,
-      color: colors.text.primary,
-      fontWeight: '600',
-    },
-    estimateSection: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      backgroundColor: colors.background,
-      padding: spacing.md,
-      borderRadius: borderRadius.md,
-      marginBottom: spacing.md,
-    },
-    estimateLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-    },
-    estimateValue: {
-      ...textStyles.caption,
-      color: colors.text.primary,
-      fontWeight: '600',
-    },
-    listActions: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      paddingTop: spacing.md,
-    },
-    actionButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-    },
-    actionButtonText: {
-      ...textStyles.caption,
-      color: colors.primary,
-      fontWeight: '600',
-    },
-    fab: {
-      position: 'absolute',
-      bottom: 80,
-      right: spacing.lg,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      justifyContent: 'center',
-      alignItems: 'center',
-      ...shadows.lg,
-    },
-  });
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+
+  statsBtn: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
+  fab: {
+    position: 'absolute', bottom: 90, right: 20,
+    width: 48, height: 48, borderRadius: 24,
+    justifyContent: 'center', alignItems: 'center',
+    elevation: 4, shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4,
+  },
+
+  summaryRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1 },
+  summaryItem: { flex: 1, alignItems: 'center' },
+  summaryVal: { fontSize: 18, fontWeight: '800', marginBottom: 1 },
+  summaryLabel: { fontSize: 11 },
+
+  filterBar: { flexDirection: 'row', borderBottomWidth: 1 },
+  filterTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  filterTabActive: { borderBottomColor: '#10B981' },
+  filterText: { fontSize: 13, fontWeight: '600' },
+
+  listContent: { padding: 16, paddingBottom: 40 },
+
+  card: { borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 8 },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  cardIcon: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
+  cardTitleWrap: { flex: 1 },
+  cardTitle: { fontSize: 14, fontWeight: '700' },
+  cardSub: { fontSize: 11, marginTop: 1 },
+  pctText: { fontSize: 13, fontWeight: '700' },
+
+  progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden', marginBottom: 8 },
+  progressFill: { height: '100%', borderRadius: 2 },
+
+  budgetRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  budgetText: { fontSize: 12 },
+  estimateText: { fontSize: 12 },
+
+  emptyWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingHorizontal: 40 },
+  emptyIconWrap: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
+  emptyTitle: { fontSize: 16, fontWeight: '700' },
+  emptyHint: { fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20, marginTop: 6 },
+  emptyBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
+});
 
 export default BazarScreen;

@@ -1,5 +1,4 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 // import { useTheme } from '../hooks/useTheme';
 import { useAuthStore } from '../store/authStore';
@@ -25,6 +24,9 @@ import {
   SavingsGoalDetailsScreen,
 } from '../features/savings/screens';
 import { ChatScreen, ConversationsScreen } from '../features/chat/screens';
+import NoteEditorScreen from '../features/notes/screens/NoteEditorScreen';
+import NotificationsScreen from '../features/profile/screens/NotificationsScreen';
+import NotificationsListScreen from '../features/notifications/screens/NotificationsListScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -33,7 +35,7 @@ const RootNavigator: React.FC = () => {
   const { isAuthenticated } = useAuthStore();
 
   return (
-    <NavigationContainer>
+    <>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -158,11 +160,26 @@ const RootNavigator: React.FC = () => {
                 component={ChatScreen}
                 options={{ headerShown: false }}
               />
+              <Stack.Screen
+                name="NoteEditor"
+                component={NoteEditorScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="NotificationSettings"
+                component={NotificationsScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="NotificationsList"
+                component={NotificationsListScreen}
+                options={{ headerShown: false }}
+              />
             </Stack.Group>
           </>
         )}
       </Stack.Navigator>
-    </NavigationContainer>
+    </>
   );
 };
 

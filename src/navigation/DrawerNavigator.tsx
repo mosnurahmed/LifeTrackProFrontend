@@ -20,6 +20,7 @@ import CategoriesScreen from '../features/categories/screens/CategoriesScreen';
 
 import BazarScreen from '../features/bazar/screens/BazarScreen';
 import ExpensesScreen from '../features/expenses/screens/ExpensesScreen';
+import { ConversationsScreen } from '../features/chat/screens';
 
 const Drawer = createDrawerNavigator<DrawerParamList>();
 
@@ -32,6 +33,7 @@ const DrawerNavigator: React.FC = () => {
       screenOptions={{
         headerShown: false,
         drawerType: 'slide',
+        drawerPosition: 'right',
         drawerStyle: {
           width: 280,
           backgroundColor: colors.background,
@@ -89,7 +91,7 @@ const DrawerNavigator: React.FC = () => {
       />
       <Drawer.Screen
         name="Chat"
-        component={ChatScreen}
+        component={ConversationsScreen}
         options={{ headerShown: false }}
       />
       <Drawer.Screen

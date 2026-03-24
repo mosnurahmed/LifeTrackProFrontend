@@ -16,7 +16,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { PieChart, ProgressChart, BarChart } from 'react-native-chart-kit';
 import { useTheme } from '../../../hooks/useTheme';
 import { useTaskStats, useTasks } from '../../../hooks/api/useTasks';
-import { Card, Spinner, ErrorState } from '../../../components/common';
+import { Card, Spinner, ErrorState, AppHeader } from '../../../components/common';
 
 const { width } = Dimensions.get('window');
 
@@ -136,14 +136,7 @@ const TaskStatsScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={28} color={colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Task Statistics</Text>
-        <View style={{ width: 28 }} />
-      </View>
+      <AppHeader title="Task Statistics" />
 
       <ScrollView style={styles.content}>
         {/* Summary Cards */}

@@ -1,21 +1,17 @@
 /**
- * Custom Drawer Navigator
+ * Custom Drawer — Professional Minimal
  */
 
 import React from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Image,
+  View, Text, StyleSheet, TouchableOpacity, Image,
 } from 'react-native';
 import {
   DrawerContentScrollView,
   DrawerContentComponentProps,
 } from '@react-navigation/drawer';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
 import { useAuthStore } from '../store/authStore';
 
@@ -23,104 +19,94 @@ interface MenuItem {
   name: string;
   icon: string;
   route: string;
-  badge?: number;
 }
 
+const MENU: MenuItem[] = [
+  { name: 'Dashboard',  icon: 'home-outline',              route: 'HomeTabs' },
+  { name: 'Expenses',   icon: 'wallet-outline',            route: 'Expenses' },
+  { name: 'Categories', icon: 'grid-outline',              route: 'Categories' },
+  { name: 'Budget',     icon: 'pie-chart-outline',         route: 'Budget' },
+  { name: 'Bazar',      icon: 'cart-outline',              route: 'Bazar' },
+  { name: 'Savings',    icon: 'trending-up-outline',       route: 'Savings' },
+  { name: 'Tasks',      icon: 'checkmark-circle-outline',  route: 'Tasks' },
+  { name: 'Notes',      icon: 'document-text-outline',     route: 'Notes' },
+  { name: 'Chat',       icon: 'chatbubble-outline',        route: 'Chat' },
+  { name: 'Settings',   icon: 'settings-outline',          route: 'Settings' },
+];
+
 const CustomDrawer: React.FC<DrawerContentComponentProps> = props => {
-  const { colors, textStyles, spacing, borderRadius, shadows } = useTheme();
+  const { colors, isDark } = useTheme();
   const { user, clearAuth } = useAuthStore();
+  const insets = useSafeAreaInsets();
 
-  const menuItems: MenuItem[] = [
-    { name: 'Dashboard', icon: 'home-outline', route: 'HomeTabs' },
-    { name: 'Expenses', icon: 'wallet-outline', route: 'Expenses' },
-    { name: 'Categories', icon: 'apps-outline', route: 'Categories' },
-    { name: 'Budget', icon: 'stats-chart-outline', route: 'Budget' },
-    { name: 'Bazar Lists', icon: 'list-outline', route: 'Bazar' },
-    { name: 'Savings Goals', icon: 'trophy-outline', route: 'Savings' },
-    { name: 'Tasks', icon: 'checkmark-circle-outline', route: 'Tasks' },
-    { name: 'Notes', icon: 'document-text-outline', route: 'Notes' },
-    { name: 'Chat', icon: 'chatbubbles-outline', route: 'Chat', badge: 3 },
-    { name: 'Settings', icon: 'settings-outline', route: 'Settings' },
-  ];
-
-  const handleLogout = () => {
-    clearAuth();
-  };
-
-  const styles = createStyles(
-    colors,
-    textStyles,
-    spacing,
-    borderRadius,
-    shadows,
-  );
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const borderC = isDark ? '#334155' : '#F1F5F9';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <DrawerContentScrollView
         {...props}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* User Profile Section */}
-        <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
+        {/* Profile */}
+        <View style={[styles.profile, { borderBottomColor: borderC, paddingTop: insets.top + 8 }]}>
+          <View style={[styles.avatarRing, { borderColor: colors.primary + '40' }]}>
             {user?.avatar ? (
               <Image source={{ uri: user.avatar }} style={styles.avatar} />
             ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>
+              <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                <Text style={styles.avatarLetter}>
                   {user?.name?.charAt(0).toUpperCase() || 'U'}
                 </Text>
               </View>
             )}
           </View>
-          <Text style={styles.userName}>{user?.name || 'User'}</Text>
-          <Text style={styles.userEmail}>{user?.email || ''}</Text>
+          <View style={styles.profileInfo}>
+            <Text style={[styles.userName, { color: textPri }]} numberOfLines={1}>
+              {user?.name || 'User'}
+            </Text>
+            <Text style={[styles.userEmail, { color: textSec }]} numberOfLines={1}>
+              {user?.email || ''}
+            </Text>
+          </View>
         </View>
 
-        {/* Menu Items */}
-        <View style={styles.menuSection}>
-          {menuItems.map((item, index) => {
+        {/* Menu */}
+        <View style={styles.menu}>
+          {MENU.map((item, index) => {
             const isFocused = props.state.index === index;
-
             return (
               <TouchableOpacity
                 key={item.route}
-                style={[styles.menuItem, isFocused && styles.menuItemActive]}
+                style={[styles.menuItem, isFocused && { backgroundColor: colors.primary + '12' }]}
                 onPress={() => props.navigation.navigate(item.route)}
                 activeOpacity={0.7}
               >
-                <View style={styles.menuItemLeft}>
-                  <Icon
-                    name={item.icon}
-                    size={24}
-                    color={isFocused ? colors.primary : colors.text.secondary}
-                  />
-                  <Text
-                    style={[
-                      styles.menuItemText,
-                      isFocused && styles.menuItemTextActive,
-                    ]}
-                  >
-                    {item.name}
-                  </Text>
-                </View>
-                {item.badge !== undefined && item.badge > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{item.badge}</Text>
-                  </View>
-                )}
+                <Icon
+                  name={isFocused ? item.icon.replace('-outline', '') || item.icon : item.icon}
+                  size={18}
+                  color={isFocused ? colors.primary : textSec}
+                />
+                <Text style={[
+                  styles.menuText,
+                  { color: isFocused ? colors.primary : textPri },
+                  isFocused && { fontWeight: '700' },
+                ]}>
+                  {item.name}
+                </Text>
               </TouchableOpacity>
             );
           })}
         </View>
       </DrawerContentScrollView>
 
-      {/* Logout Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Icon name="log-out-outline" size={24} color={colors.danger} />
+      {/* Footer */}
+      <View style={[styles.footer, { borderTopColor: borderC }]}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={clearAuth} activeOpacity={0.7}>
+          <Icon name="log-out-outline" size={18} color="#C75050" />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </View>
@@ -128,126 +114,41 @@ const CustomDrawer: React.FC<DrawerContentComponentProps> = props => {
   );
 };
 
-const createStyles = (
-  colors: any,
-  textStyles: any,
-  spacing: any,
-  borderRadius: any,
-  shadows: any,
-) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    scrollContent: {
-      flexGrow: 1,
-    },
-    profileSection: {
-      paddingVertical: spacing.xl,
-      paddingHorizontal: spacing.lg,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      alignItems: 'center',
-      backgroundColor: colors.surface,
-    },
-    avatarContainer: {
-      marginBottom: spacing.md,
-    },
-    avatar: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      borderWidth: 3,
-      borderColor: colors.primary,
-    },
-    avatarPlaceholder: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: colors.primary,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 3,
-      borderColor: colors.primary,
-    },
-    avatarText: {
-      ...textStyles.h2,
-      color: colors.text.inverse,
-      fontWeight: '700',
-    },
-    userName: {
-      ...textStyles.h4,
-      color: colors.text.primary,
-      marginBottom: spacing.xs,
-    },
-    userEmail: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-    },
-    menuSection: {
-      paddingVertical: spacing.md,
-    },
-    menuItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.lg,
-      marginHorizontal: spacing.md,
-      marginVertical: spacing.xs,
-      borderRadius: borderRadius.md,
-    },
-    menuItemActive: {
-      backgroundColor: `${colors.primary}15`,
-    },
-    menuItemLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-    },
-    menuItemText: {
-      ...textStyles.body,
-      color: colors.text.secondary,
-      marginLeft: spacing.md,
-    },
-    menuItemTextActive: {
-      color: colors.primary,
-      fontWeight: '600',
-    },
-    badge: {
-      backgroundColor: colors.danger,
-      borderRadius: borderRadius.full,
-      minWidth: 24,
-      height: 24,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: spacing.xs,
-    },
-    badgeText: {
-      ...textStyles.caption,
-      fontSize: 12,
-      color: colors.text.inverse,
-      fontWeight: '700',
-    },
-    footer: {
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      padding: spacing.lg,
-      backgroundColor: colors.surface,
-    },
-    logoutButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
-      borderRadius: borderRadius.md,
-    },
-    logoutText: {
-      ...textStyles.bodyMedium,
-      color: colors.danger,
-      marginLeft: spacing.md,
-    },
-  });
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingTop: 0 },
+
+  profile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
+  avatarRing: {
+    width: 46, height: 46, borderRadius: 23,
+    borderWidth: 2, justifyContent: 'center', alignItems: 'center',
+  },
+  avatar: {
+    width: 40, height: 40, borderRadius: 20,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  avatarLetter: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  profileInfo: { flex: 1 },
+  userName: { fontSize: 15, fontWeight: '700' },
+  userEmail: { fontSize: 12, marginTop: 1 },
+
+  menu: { paddingVertical: 8, paddingHorizontal: 10 },
+  menuItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 11, paddingHorizontal: 14, borderRadius: 10, marginVertical: 1,
+  },
+  menuText: { fontSize: 14, fontWeight: '500' },
+
+  footer: { borderTopWidth: 1, paddingHorizontal: 18, paddingVertical: 14 },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 4 },
+  logoutText: { fontSize: 14, fontWeight: '600', color: '#C75050' },
+});
 
 export default CustomDrawer;

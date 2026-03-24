@@ -71,6 +71,7 @@ export const useCreateIncome = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: incomeKeys.lists() });
       queryClient.invalidateQueries({ queryKey: incomeKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       Toast.show({
         type: 'success',
         text1: 'Success',
@@ -100,6 +101,7 @@ export const useUpdateIncome = () => {
       queryClient.invalidateQueries({ queryKey: incomeKeys.lists() });
       queryClient.invalidateQueries({ queryKey: incomeKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: incomeKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       Toast.show({
         type: 'success',
         text1: 'Success',
@@ -127,6 +129,7 @@ export const useDeleteIncome = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: incomeKeys.lists() });
       queryClient.invalidateQueries({ queryKey: incomeKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       Toast.show({
         type: 'success',
         text1: 'Success',

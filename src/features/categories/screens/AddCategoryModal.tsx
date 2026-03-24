@@ -1,8 +1,8 @@
 /**
- * Add/Edit Category Modal - With Type Selection
+ * Add/Edit Category Modal
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,59 +23,31 @@ import {
 import { Button, Input, Card, Spinner } from '../../../components/common';
 import { categorySchema } from '../../../utils/validation/schemas';
 
-// Ionicons Names - Popular categories
 const CATEGORY_ICONS = [
-  'restaurant',
-  'fast-food',
-  'pizza',
-  'cafe',
-  'beer',
-  'cart',
-  'car',
-  'bus',
-  'medical',
-  'fitness',
-  'home',
-  'bulb',
-  'phone-portrait',
-  'laptop',
-  'shirt',
-  'footsteps',
-  'film',
-  'game-controller',
-  'book',
-  'airplane',
-  'barbell',
-  'briefcase',
-  'document-text',
-  'school',
-  'paw',
-  'gift',
-  'cash',
-  'stats-chart',
-  'hammer',
-  'color-palette',
-  'wallet',
-  'trending-up',
-  'business',
+  // Food & Drink
+  'restaurant', 'fast-food', 'pizza', 'cafe', 'wine', 'beer', 'ice-cream', 'nutrition',
+  // Transport
+  'car', 'bus', 'train', 'airplane', 'bicycle', 'boat', 'walk',
+  // Shopping
+  'cart', 'bag-handle', 'shirt', 'gift', 'diamond', 'storefront',
+  // Home & Utilities
+  'home', 'bed', 'bulb', 'flame', 'water', 'hammer', 'construct', 'leaf',
+  // Health & Fitness
+  'medical', 'fitness', 'heart', 'bandage', 'barbell', 'body',
+  // Entertainment
+  'film', 'game-controller', 'musical-notes', 'headset', 'tv', 'camera',
+  // Finance & Work
+  'cash', 'card', 'wallet', 'trending-up', 'stats-chart', 'briefcase', 'business', 'bank',
+  // Education & Personal
+  'school', 'book', 'pencil', 'calculator', 'people', 'person', 'paw',
+  // Tech
+  'laptop', 'phone-portrait', 'wifi', 'cloud',
 ];
 
 const CATEGORY_COLORS = [
-  '#10B981',
-  '#3B82F6',
-  '#F59E0B',
-  '#EF4444',
-  '#8B5CF6',
-  '#EC4899',
-  '#14B8A6',
-  '#F97316',
-  '#6366F1',
-  '#84CC16',
-  '#06B6D4',
-  '#F43F5E',
-  '#8B5CF6',
-  '#A855F7',
-  '#D946EF',
+  '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6',
+  '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16',
+  '#06B6D4', '#F43F5E', '#A855F7', '#D946EF', '#0EA5E9',
 ];
 
 const AddCategoryModal: React.FC = () => {
@@ -85,12 +57,11 @@ const AddCategoryModal: React.FC = () => {
 
   const { mode, categoryId, defaultType } = (route.params as any) || {
     mode: 'create',
-    defaultType: 'expense', // ✅ Default to expense
+    defaultType: 'expense',
   };
   const isEditMode = mode === 'edit';
 
-  const { data: categoryData, isLoading: categoryLoading } =
-    useCategory(categoryId);
+  const { data: categoryData, isLoading: categoryLoading } = useCategory(categoryId);
   const category = categoryData?.data;
 
   const createMutation = useCreateCategory();
@@ -108,50 +79,28 @@ const AddCategoryModal: React.FC = () => {
       name: '',
       icon: 'cash',
       color: '#10B981',
-      type: defaultType || 'expense', // ✅ Use defaultType from route params
-      monthlyBudget: undefined,
-      monthlyIncome: undefined, // ✅ NEW
+      type: defaultType || 'expense',
     },
   });
 
   const selectedIcon = watch('icon');
   const selectedColor = watch('color');
-  const selectedType = watch('type'); // ✅ Watch type
+  const selectedType = watch('type');
 
   useEffect(() => {
     if (isEditMode && category) {
       setValue('name', category.name);
       setValue('icon', category.icon);
       setValue('color', category.color);
-      setValue('type', category.type); // ✅ Set type
-      setValue('monthlyBudget', category.monthlyBudget);
-      setValue('monthlyIncome', category.monthlyIncome); // ✅ Set monthlyIncome
+      setValue('type', category.type);
     }
   }, [category, isEditMode]);
 
   const onSubmit = async (data: any) => {
-    const formattedData = {
-      ...data,
-      monthlyBudget: data.monthlyBudget
-        ? parseFloat(data.monthlyBudget)
-        : undefined,
-      monthlyIncome: data.monthlyIncome
-        ? parseFloat(data.monthlyIncome)
-        : undefined, // ✅ Format income
-    };
-
-    // ✅ Remove fields based on type
-    if (formattedData.type === 'expense') {
-      delete formattedData.monthlyIncome;
-    }
-    if (formattedData.type === 'income') {
-      delete formattedData.monthlyBudget;
-    }
-
     if (isEditMode) {
-      await updateMutation.mutateAsync({ id: categoryId, data: formattedData });
+      await updateMutation.mutateAsync({ id: categoryId, data });
     } else {
-      await createMutation.mutateAsync(formattedData);
+      await createMutation.mutateAsync(data);
     }
     navigation.goBack();
   };
@@ -166,147 +115,80 @@ const AddCategoryModal: React.FC = () => {
     );
   }
 
+  const typeColor =
+    selectedType === 'income' ? colors.success :
+    selectedType === 'both' ? colors.info :
+    colors.danger;
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="close" size={28} color={colors.text.primary} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
+          <Icon name="close" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.title}>
-          {isEditMode ? 'Edit Category' : 'Add Category'}
+          {isEditMode ? 'Edit Category' : 'New Category'}
         </Text>
-        <View style={{ width: 28 }} />
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* ✅ Type Selection */}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+
+        {/* Type Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Category Type *</Text>
+          <Text style={styles.sectionTitle}>Type</Text>
           <Controller
             control={control}
             name="type"
             render={({ field: { onChange, value } }) => (
-              <View style={styles.typeButtons}>
-                <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    value === 'expense' && styles.typeButtonActive,
-                    { borderColor: colors.danger },
-                  ]}
-                  onPress={() => onChange('expense')}
-                  activeOpacity={0.7}
-                >
-                  <Icon
-                    name="trending-down"
-                    size={24}
-                    color={
-                      value === 'expense'
-                        ? colors.danger
-                        : colors.text.secondary
-                    }
-                  />
-                  <Text
+              <View style={styles.typeRow}>
+                {[
+                  { key: 'expense', label: 'Expense', icon: 'trending-down', color: colors.danger },
+                  { key: 'income', label: 'Income', icon: 'trending-up', color: colors.success },
+                  { key: 'both', label: 'Both', icon: 'swap-horizontal', color: colors.info },
+                ].map(item => (
+                  <TouchableOpacity
+                    key={item.key}
                     style={[
-                      styles.typeButtonText,
-                      value === 'expense' && {
-                        color: colors.danger,
-                        fontWeight: '700',
-                      },
+                      styles.typeBtn,
+                      value === item.key && { backgroundColor: `${item.color}18`, borderColor: item.color, borderWidth: 2 },
                     ]}
+                    onPress={() => onChange(item.key)}
+                    activeOpacity={0.7}
                   >
-                    Expense
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    value === 'income' && styles.typeButtonActive,
-                    { borderColor: colors.success },
-                  ]}
-                  onPress={() => onChange('income')}
-                  activeOpacity={0.7}
-                >
-                  <Icon
-                    name="trending-up"
-                    size={24}
-                    color={
-                      value === 'income'
-                        ? colors.success
-                        : colors.text.secondary
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.typeButtonText,
-                      value === 'income' && {
-                        color: colors.success,
-                        fontWeight: '700',
-                      },
-                    ]}
-                  >
-                    Income
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    value === 'both' && styles.typeButtonActive,
-                    { borderColor: colors.info },
-                  ]}
-                  onPress={() => onChange('both')}
-                  activeOpacity={0.7}
-                >
-                  <Icon
-                    name="swap-horizontal"
-                    size={24}
-                    color={
-                      value === 'both' ? colors.info : colors.text.secondary
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.typeButtonText,
-                      value === 'both' && {
-                        color: colors.info,
-                        fontWeight: '700',
-                      },
-                    ]}
-                  >
-                    Both
-                  </Text>
-                </TouchableOpacity>
+                    <Icon name={item.icon} size={20} color={value === item.key ? item.color : colors.text.secondary} />
+                    <Text style={[styles.typeBtnText, value === item.key && { color: item.color, fontWeight: '700' }]}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             )}
           />
-          {errors.type && (
-            <Text style={styles.errorText}>
-              {errors.type.message as string}
-            </Text>
-          )}
         </View>
 
         {/* Name */}
-        <Controller
-          control={control}
-          name="name"
-          render={({ field: { onChange, value } }) => (
-            <Input
-              label="Category Name *"
-              placeholder="e.g., Food, Salary, Transport"
-              value={value}
-              onChangeText={onChange}
-              error={errors.name?.message}
-              leftIcon="text-outline"
-            />
-          )}
-        />
+        <View style={styles.section}>
+          <Controller
+            control={control}
+            name="name"
+            render={({ field: { onChange, value } }) => (
+              <Input
+                label="Category Name"
+                placeholder="e.g., Food, Salary, Transport"
+                value={value}
+                onChangeText={onChange}
+                error={errors.name?.message}
+                leftIcon="text-outline"
+              />
+            )}
+          />
+        </View>
 
         {/* Icon Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Icon *</Text>
+          <Text style={styles.sectionTitle}>Icon</Text>
           <Controller
             control={control}
             name="icon"
@@ -316,22 +198,15 @@ const AddCategoryModal: React.FC = () => {
                   <TouchableOpacity
                     key={index}
                     style={[
-                      styles.iconButton,
-                      value === iconName && {
-                        backgroundColor: selectedColor,
-                        borderColor: selectedColor,
-                      },
+                      styles.iconBtn,
+                      value === iconName && { backgroundColor: selectedColor, borderColor: selectedColor },
                     ]}
                     onPress={() => onChange(iconName)}
                   >
                     <Icon
                       name={iconName}
-                      size={28}
-                      color={
-                        value === iconName
-                          ? colors.text.inverse
-                          : colors.text.primary
-                      }
+                      size={24}
+                      color={value === iconName ? '#FFFFFF' : colors.text.secondary}
                     />
                   </TouchableOpacity>
                 ))}
@@ -342,7 +217,7 @@ const AddCategoryModal: React.FC = () => {
 
         {/* Color Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Color *</Text>
+          <Text style={styles.sectionTitle}>Color</Text>
           <Controller
             control={control}
             name="color"
@@ -352,14 +227,14 @@ const AddCategoryModal: React.FC = () => {
                   <TouchableOpacity
                     key={index}
                     style={[
-                      styles.colorButton,
+                      styles.colorBtn,
                       { backgroundColor: color },
-                      value === color && styles.colorButtonSelected,
+                      value === color && styles.colorBtnSelected,
                     ]}
                     onPress={() => onChange(color)}
                   >
                     {value === color && (
-                      <Icon name="checkmark" size={20} color="#FFFFFF" />
+                      <Icon name="checkmark" size={18} color="#FFFFFF" />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -369,88 +244,27 @@ const AddCategoryModal: React.FC = () => {
         </View>
 
         {/* Preview */}
-        <Card style={styles.preview}>
-          <View style={styles.previewContent}>
-            <View
-              style={[
-                styles.previewIcon,
-                { backgroundColor: `${selectedColor}15` },
-              ]}
-            >
-              <Icon name={selectedIcon} size={40} color={selectedColor} />
-            </View>
-            <Text style={styles.previewText}>Preview</Text>
-            <View
-              style={[
-                styles.previewTypeBadge,
-                {
-                  backgroundColor:
-                    selectedType === 'income'
-                      ? `${colors.success}15`
-                      : selectedType === 'both'
-                      ? `${colors.info}15`
-                      : `${colors.danger}15`,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.previewTypeBadgeText,
-                  {
-                    color:
-                      selectedType === 'income'
-                        ? colors.success
-                        : selectedType === 'both'
-                        ? colors.info
-                        : colors.danger,
-                  },
-                ]}
-              >
-                {selectedType}
+        <View style={styles.previewCard}>
+          <View style={[styles.previewIconWrap, { backgroundColor: `${selectedColor}20` }]}>
+            <Icon name={selectedIcon} size={36} color={selectedColor} />
+          </View>
+          <View style={styles.previewInfo}>
+            <Text style={styles.previewName} numberOfLines={1}>
+              {watch('name') || 'Category Name'}
+            </Text>
+            <View style={[styles.typeBadge, { backgroundColor: `${typeColor}18` }]}>
+              <Icon name={
+                selectedType === 'income' ? 'trending-up' :
+                selectedType === 'both' ? 'swap-horizontal' : 'trending-down'
+              } size={12} color={typeColor} />
+              <Text style={[styles.typeBadgeText, { color: typeColor }]}>
+                {selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}
               </Text>
             </View>
           </View>
-        </Card>
+        </View>
 
-        {/* ✅ Conditional Fields Based on Type */}
-        {(selectedType === 'expense' || selectedType === 'both') && (
-          <Controller
-            control={control}
-            name="monthlyBudget"
-            render={({ field: { onChange, value } }) => (
-              <Input
-                label="Monthly Budget (Optional)"
-                placeholder="0"
-                type="number"
-                value={value?.toString()}
-                onChangeText={text =>
-                  onChange(text ? parseFloat(text) : undefined)
-                }
-                leftIcon="cash-outline"
-              />
-            )}
-          />
-        )}
-
-        {/* ✅ NEW: Monthly Income Target */}
-        {(selectedType === 'income' || selectedType === 'both') && (
-          <Controller
-            control={control}
-            name="monthlyIncome"
-            render={({ field: { onChange, value } }) => (
-              <Input
-                label="Monthly Income Target (Optional)"
-                placeholder="0"
-                type="number"
-                value={value?.toString()}
-                onChangeText={text =>
-                  onChange(text ? parseFloat(text) : undefined)
-                }
-                leftIcon="trending-up-outline"
-              />
-            )}
-          />
-        )}
+        <View style={{ height: 20 }} />
       </ScrollView>
 
       {/* Footer */}
@@ -474,17 +288,9 @@ const AddCategoryModal: React.FC = () => {
   );
 };
 
-const createStyles = (
-  colors: any,
-  textStyles: any,
-  spacing: any,
-  borderRadius: any,
-) =>
+const createStyles = (colors: any, textStyles: any, spacing: any, borderRadius: any) =>
   StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
+    container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -494,121 +300,90 @@ const createStyles = (
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    title: {
-      ...textStyles.h3,
-      color: colors.text.primary,
-    },
-    content: {
-      flex: 1,
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.lg,
-    },
-    section: {
-      marginBottom: spacing.xl,
-    },
+    closeBtn: { width: 40, height: 40, justifyContent: 'center' },
+    title: { ...textStyles.h3, color: colors.text.primary },
+    content: { flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+    section: { marginBottom: spacing.xl },
     sectionTitle: {
       ...textStyles.bodyMedium,
       color: colors.text.primary,
+      fontWeight: '600',
       marginBottom: spacing.md,
     },
-    // ✅ Type Selection Styles
-    typeButtons: {
-      flexDirection: 'row',
-      gap: spacing.md,
-    },
-    typeButton: {
+    typeRow: { flexDirection: 'row', gap: spacing.sm },
+    typeBtn: {
       flex: 1,
       flexDirection: 'column',
       alignItems: 'center',
       paddingVertical: spacing.md,
-      borderWidth: 2,
-      borderColor: colors.border,
       borderRadius: borderRadius.md,
       backgroundColor: colors.surface,
-      gap: spacing.xs,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      gap: 4,
     },
-    typeButtonActive: {
-      borderWidth: 2,
-    },
-    typeButtonText: {
-      ...textStyles.caption,
+    typeBtnText: {
+      fontSize: 12,
       color: colors.text.secondary,
       fontWeight: '600',
     },
-    iconGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
-    iconButton: {
-      width: 56,
-      height: 56,
+    iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    iconBtn: {
+      width: 52,
+      height: 52,
       justifyContent: 'center',
       alignItems: 'center',
       borderRadius: borderRadius.md,
       backgroundColor: colors.surface,
-      borderWidth: 2,
+      borderWidth: 1.5,
       borderColor: colors.border,
     },
-    colorGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.md,
-    },
-    colorButton: {
-      width: 48,
-      height: 48,
+    colorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+    colorBtn: {
+      width: 44,
+      height: 44,
       borderRadius: borderRadius.md,
       justifyContent: 'center',
       alignItems: 'center',
       borderWidth: 2,
       borderColor: 'transparent',
     },
-    colorButtonSelected: {
-      borderColor: colors.text.primary,
-    },
-    preview: {
-      marginBottom: spacing.xl,
-    },
-    previewContent: {
+    colorBtnSelected: { borderColor: colors.text.primary },
+    previewCard: {
+      flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacing.lg,
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.lg,
+      padding: spacing.lg,
+      gap: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
-    previewIcon: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
+    previewIconWrap: {
+      width: 64,
+      height: 64,
+      borderRadius: borderRadius.lg,
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: spacing.md,
     },
-    previewText: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      marginBottom: spacing.sm,
-    },
-    previewTypeBadge: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
+    previewInfo: { flex: 1 },
+    previewName: { ...textStyles.h4, color: colors.text.primary, marginBottom: spacing.xs },
+    typeBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
       borderRadius: borderRadius.full,
+      alignSelf: 'flex-start',
     },
-    previewTypeBadgeText: {
-      ...textStyles.caption,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      fontSize: 10,
-    },
+    typeBadgeText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
     footer: {
       flexDirection: 'row',
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
       borderTopWidth: 1,
       borderTopColor: colors.border,
-    },
-    errorText: {
-      ...textStyles.caption,
-      color: colors.danger,
-      marginTop: spacing.xs,
     },
   });
 

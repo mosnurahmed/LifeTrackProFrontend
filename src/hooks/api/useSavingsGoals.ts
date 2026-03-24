@@ -3,183 +3,107 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import savingsGoalApi, {
-  CreateSavingsGoalData,
-  AddContributionData,
-} from '../../api/endpoints/savingsGoals';
+import savingsGoalApi, { CreateSavingsGoalData, AddContributionData } from '../../api/endpoints/savingsGoals';
 import Toast from 'react-native-toast-message';
 
-// Query keys
-export const savingsGoalKeys = {
-  all: ['savingsGoals'] as const,
-  lists: () => [...savingsGoalKeys.all, 'list'] as const,
-  details: () => [...savingsGoalKeys.all, 'detail'] as const,
-  detail: (id: string) => [...savingsGoalKeys.details(), id] as const,
-  contributions: (id: string) =>
-    [...savingsGoalKeys.all, 'contributions', id] as const,
-  stats: () => [...savingsGoalKeys.all, 'stats'] as const,
+export const savingsKeys = {
+  all:           ['savings'] as const,
+  list:          ()                       => ['savings', 'list']                as const,
+  detail:        (id: string)             => ['savings', 'detail', id]          as const,
+  contributions: (id: string)             => ['savings', 'contributions', id]   as const,
+  stats:         (year: number, month: number) => ['savings', 'stats', year, month] as const,
+  account:       ()                       => ['savings', 'account']             as const,
 };
 
-// Get all savings goals
-export const useSavingsGoals = () => {
-  return useQuery({
-    queryKey: savingsGoalKeys.lists(),
-    queryFn: () => savingsGoalApi.getAll(),
-    
+export const useSavingsGoals = () =>
+  useQuery({ queryKey: savingsKeys.list(), queryFn: () => savingsGoalApi.getAll() });
+
+export const useSavingsGoal = (id: string) =>
+  useQuery({ queryKey: savingsKeys.detail(id), queryFn: () => savingsGoalApi.getById(id), enabled: !!id });
+
+export const useContributions = (id: string) =>
+  useQuery({ queryKey: savingsKeys.contributions(id), queryFn: () => savingsGoalApi.getContributions(id), enabled: !!id });
+
+export const useSavingsStats = (year: number, month: number) =>
+  useQuery({
+    queryKey: savingsKeys.stats(year, month),
+    queryFn:  () => savingsGoalApi.getStats(year, month),
+    select:   (data: any) => data?.data?.data as any,
+  });
+
+export const useSavingsAccount = () =>
+  useQuery({
+    queryKey: savingsKeys.account(),
+    queryFn:  () => savingsGoalApi.getAccount(),
+    select:   (data: any) => data.data as any,
+  });
+
+export const useSetSavingsAccount = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (initialBalance: number) => savingsGoalApi.setAccount(initialBalance),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: savingsKeys.account() });
+      qc.invalidateQueries({ queryKey: ['savings', 'stats'] });
+      Toast.show({ type: 'success', text1: 'Initial balance updated' });
+    },
+    onError: (err: any) => Toast.show({ type: 'error', text1: err.response?.data?.error || 'Failed to update' }),
   });
 };
 
-// Get single savings goal
-export const useSavingsGoal = (id: string) => {
-  return useQuery({
-    queryKey: savingsGoalKeys.detail(id),
-    queryFn: () => savingsGoalApi.getById(id),
-    enabled: !!id,
-  });
-};
-
-// Get contribution history
-export const useContributions = (id: string) => {
-  return useQuery({
-    queryKey: savingsGoalKeys.contributions(id),
-    queryFn: () => savingsGoalApi.getContributions(id),
-    enabled: !!id,
-  });
-};
-
-// Get statistics
-export const useSavingsStats = () => {
-  return useQuery({
-    queryKey: savingsGoalKeys.stats(),
-    queryFn: () => savingsGoalApi.getStats(),
-    select: (data) => data.data,
-  });
-};
-
-// Create savings goal
 export const useCreateSavingsGoal = () => {
-  const queryClient = useQueryClient();
-
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateSavingsGoalData) => savingsGoalApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: savingsGoalKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: savingsGoalKeys.stats() });
-      Toast.show({
-        type: 'success',
-        text1: 'Success',
-        text2: 'Savings goal created successfully',
-      });
+      qc.invalidateQueries({ queryKey: savingsKeys.list() });
+      qc.invalidateQueries({ queryKey: ['savings', 'stats'] });
+      Toast.show({ type: 'success', text1: 'Goal created!' });
     },
-    onError: (error: any) => {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: error.response?.data?.error || 'Failed to create goal',
-      });
-    },
+    onError: (err: any) => Toast.show({ type: 'error', text1: err.response?.data?.error || 'Failed to create goal' }),
   });
 };
 
-// Update savings goal
 export const useUpdateSavingsGoal = () => {
-  const queryClient = useQueryClient();
-
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: Partial<CreateSavingsGoalData>;
-    }) => savingsGoalApi.update(id, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: savingsGoalKeys.lists() });
-      queryClient.invalidateQueries({
-        queryKey: savingsGoalKeys.detail(variables.id),
-      });
-      queryClient.invalidateQueries({ queryKey: savingsGoalKeys.stats() });
-      Toast.show({
-        type: 'success',
-        text1: 'Success',
-        text2: 'Savings goal updated successfully',
-      });
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreateSavingsGoalData> }) =>
+      savingsGoalApi.update(id, data),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: savingsKeys.list() });
+      qc.invalidateQueries({ queryKey: savingsKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: ['savings', 'stats'] });
+      Toast.show({ type: 'success', text1: 'Goal updated' });
     },
-    onError: (error: any) => {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: error.response?.data?.error || 'Failed to update goal',
-      });
-    },
+    onError: (err: any) => Toast.show({ type: 'error', text1: err.response?.data?.error || 'Failed to update goal' }),
   });
 };
 
-// Delete savings goal
 export const useDeleteSavingsGoal = () => {
-  const queryClient = useQueryClient();
-
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => savingsGoalApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: savingsGoalKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: savingsGoalKeys.stats() });
-      Toast.show({
-        type: 'success',
-        text1: 'Success',
-        text2: 'Savings goal deleted successfully',
-      });
+      qc.invalidateQueries({ queryKey: savingsKeys.list() });
+      qc.invalidateQueries({ queryKey: ['savings', 'stats'] });
+      Toast.show({ type: 'success', text1: 'Goal deleted' });
     },
-    onError: (error: any) => {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: error.response?.data?.error || 'Failed to delete goal',
-      });
-    },
+    onError: (err: any) => Toast.show({ type: 'error', text1: err.response?.data?.error || 'Failed to delete' }),
   });
 };
 
-// Add contribution
 export const useAddContribution = () => {
-  const queryClient = useQueryClient();
-
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: AddContributionData }) =>
       savingsGoalApi.addContribution(id, data),
-    onSuccess: (response, variables) => {
-      queryClient.invalidateQueries({ queryKey: savingsGoalKeys.lists() });
-      queryClient.invalidateQueries({
-        queryKey: savingsGoalKeys.detail(variables.id),
-      });
-      queryClient.invalidateQueries({
-        queryKey: savingsGoalKeys.contributions(variables.id),
-      });
-      queryClient.invalidateQueries({ queryKey: savingsGoalKeys.stats() });
-
-      // Check for milestone notification
-      const data = response?.data;
-      if (data?.milestoneReached) {
-        Toast.show({
-          type: 'success',
-          text1: '🎉 Milestone Reached!',
-          text2: `${data.progress}% of your goal completed!`,
-          visibilityTime: 4000,
-        });
-      } else {
-        Toast.show({
-          type: 'success',
-          text1: 'Success',
-          text2: 'Contribution added successfully',
-        });
-      }
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: savingsKeys.list() });
+      qc.invalidateQueries({ queryKey: savingsKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: savingsKeys.contributions(id) });
+      qc.invalidateQueries({ queryKey: ['savings', 'stats'] });
+      Toast.show({ type: 'success', text1: 'Contribution added!' });
     },
-    onError: (error: any) => {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: error.response?.data?.error || 'Failed to add contribution',
-      });
-    },
+    onError: (err: any) => Toast.show({ type: 'error', text1: err.response?.data?.error || 'Failed to add contribution' }),
   });
 };

@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
 
 interface SpinnerProps {
@@ -18,12 +19,10 @@ const Spinner: React.FC<SpinnerProps> = ({
   fullScreen = false,
 }) => {
   const { colors, textStyles, spacing } = useTheme();
-
-  const Container = fullScreen ? View : React.Fragment;
-  const containerStyle = fullScreen ? styles.fullScreen : {};
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, containerStyle]}>
+    <View style={[styles.container, fullScreen && styles.fullScreen, { paddingTop: insets.top }]}>
       <ActivityIndicator size={size} color={colors.primary} />
       {text && (
         <Text
@@ -41,6 +40,7 @@ const Spinner: React.FC<SpinnerProps> = ({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,

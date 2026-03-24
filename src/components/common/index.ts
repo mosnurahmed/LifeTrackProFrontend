@@ -9,4 +9,6 @@ export { default as EmptyState } from './EmptyState';
 export { default as ErrorState } from './ErrorState';
 export { Skeleton, SkeletonCard, SkeletonList, Spinner } from './Loading';
 
-export { default as SafeScreen } from './SafeScreen'; // ✅ ADD THIS
+export { default as SafeScreen } from './SafeScreen';
+export { default as AppHeader } from './AppHeader';
+export { ConfirmProvider, useConfirm } from './ConfirmModal';

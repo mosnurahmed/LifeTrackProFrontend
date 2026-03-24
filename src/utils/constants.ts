@@ -4,20 +4,17 @@
  * Centralized configuration values
  */
 
-import { Platform } from 'react-native';
-
 // API Configuration
+const LOCAL_IP = '192.168.2.156'; // ← তোমার PC-র local IP দাও
+// `http://${LOCAL_IP}:5000`
+
 export const API_BASE_URL = __DEV__
-  ? Platform.OS === 'android'
-    ? 'https://lifetrack-backend.vercel.app/api'  // Android emulator
-    : 'https://lifetrack-backend.vercel.app/api'  // iOS simulator
-  : 'https://lifetrack-backend.vercel.app/api';  // Production
+  ? `https://lifetrack-backend-mosnur-ahmeds-projects.vercel.app/api`
+  : 'https://lifetrack-backend-mosnur-ahmeds-projects.vercel.app/api';
 
 export const SOCKET_URL = __DEV__
-  ? Platform.OS === 'android'
-    ? 'https://lifetrack-backend.vercel.app/api'  // Android emulator
-    : 'https://lifetrack-backend.vercel.app/api'
-  : 'https://lifetrack-backend.vercel.app/api';
+  ? `https://lifetrack-backend-mosnur-ahmeds-projects.vercel.app`
+  : 'https://lifetrack-backend-mosnur-ahmeds-projects.vercel.app';
 
 // Pagination
 export const PAGE_SIZE = 20;
