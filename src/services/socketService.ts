@@ -3,15 +3,13 @@
  */
 
 import { io, Socket } from 'socket.io-client';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SOCKET_URL } from '../utils/constants';
+import { useAuthStore } from '../store/authStore';
 import {
   SocketMessage,
   TypingEvent,
   UserStatusEvent
 } from '../types/chat.types';
-
-// TODO: Update with your backend URL
-const SOCKET_URL = 'http://192.168.110.125:5000';
 
 class SocketService {
   private socket: Socket | null = null;
@@ -19,10 +17,18 @@ class SocketService {
 
   async connect(): Promise<void> {
     try {
-      const token = await AsyncStorage.getItem('token');
-      
+      // Get token from zustand auth store
+      const token = useAuthStore.getState().accessToken;
+
       if (!token) {
-        throw new Error('No authentication token');
+        console.warn('⚠️ Socket: No auth token available');
+        return;
+      }
+
+      // Disconnect existing socket if any
+      if (this.socket) {
+        this.socket.disconnect();
+        this.socket = null;
       }
 
       this.socket = io(SOCKET_URL, {
@@ -30,21 +36,21 @@ class SocketService {
         transports: ['websocket'],
         reconnection: true,
         reconnectionDelay: 1000,
-        reconnectionAttempts: 5
+        reconnectionAttempts: 10,
       });
 
       this.socket.on('connect', () => {
-        console.log('✅ Socket connected');
+        console.log('✅ Socket connected:', this.socket?.id);
         this.isConnected = true;
       });
 
-      this.socket.on('disconnect', () => {
-        console.log('❌ Socket disconnected');
+      this.socket.on('disconnect', (reason) => {
+        console.log('❌ Socket disconnected:', reason);
         this.isConnected = false;
       });
 
       this.socket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
+        console.error('Socket connection error:', error.message);
       });
     } catch (error) {
       console.error('Socket initialization error:', error);
@@ -58,6 +64,8 @@ class SocketService {
       this.isConnected = false;
     }
   }
+
+  // ─── Chat ────────────────────────────────────────────────────────────
 
   joinChat(otherUserId: string): void {
     if (this.socket) {
@@ -73,6 +81,7 @@ class SocketService {
 
   onReceiveMessage(callback: (message: SocketMessage) => void): void {
     if (this.socket) {
+      this.socket.off('receive_message');
       this.socket.on('receive_message', callback);
     }
   }
@@ -83,20 +92,23 @@ class SocketService {
     }
   }
 
+  // ─── Typing ──────────────────────────────────────────────────────────
+
   startTyping(receiverId: string): void {
     if (this.socket) {
-      this.socket.emit('typing_start', { receiverId });
+      this.socket.emit('typing', { receiverId, isTyping: true });
     }
   }
 
   stopTyping(receiverId: string): void {
     if (this.socket) {
-      this.socket.emit('typing_stop', { receiverId });
+      this.socket.emit('typing', { receiverId, isTyping: false });
     }
   }
 
   onUserTyping(callback: (event: TypingEvent) => void): void {
     if (this.socket) {
+      this.socket.off('user_typing');
       this.socket.on('user_typing', callback);
     }
   }
@@ -107,14 +119,18 @@ class SocketService {
     }
   }
 
+  // ─── Online Status ───────────────────────────────────────────────────
+
   onUserOnline(callback: (event: UserStatusEvent) => void): void {
     if (this.socket) {
+      this.socket.off('user_online');
       this.socket.on('user_online', callback);
     }
   }
 
   onUserOffline(callback: (event: UserStatusEvent) => void): void {
     if (this.socket) {
+      this.socket.off('user_offline');
       this.socket.on('user_offline', callback);
     }
   }
@@ -126,6 +142,23 @@ class SocketService {
     }
   }
 
+  // ─── Read Receipt ────────────────────────────────────────────────────
+
+  markMessageRead(messageId: string): void {
+    if (this.socket) {
+      this.socket.emit('message_read', { messageId });
+    }
+  }
+
+  onMessageRead(callback: (data: { messageId: string }) => void): void {
+    if (this.socket) {
+      this.socket.off('message_read');
+      this.socket.on('message_read', callback);
+    }
+  }
+
+  // ─── Utils ───────────────────────────────────────────────────────────
+
   isSocketConnected(): boolean {
     return this.isConnected;
   }
@@ -135,4 +168,5 @@ class SocketService {
   }
 }
 
-export default new SocketService();
+const socketService = new SocketService();
+export default socketService;

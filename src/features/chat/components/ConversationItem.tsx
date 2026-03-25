@@ -6,6 +6,17 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useTheme } from '../../../hooks/useTheme';
 
+const AVATAR_COLORS = [
+  '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6',
+  '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#06B6D4',
+];
+
+const getAvatarColor = (name: string) => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+
 interface ConversationItemProps {
   conversation: {
     userId: string;
@@ -61,7 +72,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({ conversation
         {conversation.userAvatar ? (
           <Image source={{ uri: conversation.userAvatar }} style={styles.avatar} />
         ) : (
-          <View style={[styles.avatar, { backgroundColor: '#8B5CF6' }]}>
+          <View style={[styles.avatar, { backgroundColor: getAvatarColor(conversation.userName) }]}>
             <Text style={styles.initials}>{initials}</Text>
           </View>
         )}
@@ -74,7 +85,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({ conversation
           <Text style={[styles.name, { color: textPri, fontWeight: hasUnread ? '700' : '600' }]} numberOfLines={1}>
             {conversation.userName}
           </Text>
-          <Text style={[styles.time, { color: hasUnread ? '#8B5CF6' : textSec }]}>
+          <Text style={[styles.time, { color: hasUnread ? colors.primary : textSec }]}>
             {formatTime(conversation.lastMessageTime)}
           </Text>
         </View>
@@ -86,7 +97,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({ conversation
             {conversation.lastMessage || 'No messages yet'}
           </Text>
           {hasUnread && (
-            <View style={styles.badge}>
+            <View style={[styles.badge, { backgroundColor: colors.primary }]}>
               <Text style={styles.badgeText}>
                 {(conversation.unreadCount ?? 0) > 99 ? '99+' : conversation.unreadCount}
               </Text>
@@ -110,7 +121,7 @@ const styles = StyleSheet.create({
   time:       { fontSize: 12 },
   bottomRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   lastMsg:    { fontSize: 13, flex: 1, marginRight: 8 },
-  badge:      { backgroundColor: '#8B5CF6', borderRadius: 10, minWidth: 20, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5 },
+  badge:      { borderRadius: 10, minWidth: 20, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5 },
   badgeText:  { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
 });
 

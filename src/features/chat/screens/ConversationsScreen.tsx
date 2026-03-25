@@ -28,7 +28,6 @@ import {
   useSendMessage,
 } from '../../../hooks/api/useChat';
 import { ConversationItem } from '../components/ConversationItem';
-import socketService from '../../../services/socketService';
 
 // ─── New Chat Modal ────────────────────────────────────────────────────────────
 
@@ -53,6 +52,7 @@ const NewChatModal = ({
   const sendMutation = useSendMessage();
 
   const isDark = colors.background === '#0F172A';
+  const primary = colors.primary || '#10B981';
 
   const reset = () => {
     setEmail('');
@@ -181,7 +181,7 @@ const NewChatModal = ({
                 style={[
                   mStyles.primaryBtn,
                   {
-                    backgroundColor: '#8B5CF6',
+                    backgroundColor: primary,
                     opacity:
                       !email.trim() || searchMutation.isPending ? 0.6 : 1,
                   },
@@ -202,10 +202,10 @@ const NewChatModal = ({
               <View
                 style={[
                   mStyles.userCard,
-                  { backgroundColor: inputBg, borderColor: '#8B5CF640' },
+                  { backgroundColor: inputBg, borderColor: `${primary}40` },
                 ]}
               >
-                <View style={[mStyles.avatar, { backgroundColor: '#8B5CF6' }]}>
+                <View style={[mStyles.avatar, { backgroundColor: primary }]}>
                   <Text style={mStyles.avatarText}>
                     {foundUser?.name?.charAt(0)?.toUpperCase() ?? '?'}
                   </Text>
@@ -256,7 +256,7 @@ const NewChatModal = ({
                     mStyles.primaryBtn,
                     {
                       flex: 1,
-                      backgroundColor: '#8B5CF6',
+                      backgroundColor: primary,
                       opacity: sendMutation.isPending ? 0.6 : 1,
                     },
                   ]}
@@ -293,7 +293,6 @@ const ConversationsScreen: React.FC = () => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [showNewChat, setShowNewChat] = useState(false);
 
   const {
@@ -311,47 +310,35 @@ const ConversationsScreen: React.FC = () => {
     typeof unreadData === 'number' ? (unreadData as number) : 0;
 
   const isDark = colors.background === '#0F172A';
+  const primary = colors.primary || '#10B981';
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
   const bgColor = colors.background;
   const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
   const borderC = isDark ? '#334155' : '#E2E8F0';
 
+  // Polling: refetch conversations every 5s
   useEffect(() => {
-    const initSocket = async () => {
-      await socketService.connect();
-      socketService.onUserOnline(e => setOnlineUsers(p => [...p, e.userId]));
-      socketService.onUserOffline(e =>
-        setOnlineUsers(p => p.filter(id => id !== e.userId)),
-      );
-      socketService.getOnlineUsers(users => setOnlineUsers(users));
-    };
-    initSocket();
-    return () => {
-      socketService.disconnect();
-    };
+    const interval = setInterval(() => refetch(), 5000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const goToChat = (userId: string, userName: string, userAvatar?: string) => {
-    (navigation.getParent() as any)?.navigate('Chat', {
-      userId,
-      userName,
-      userAvatar,
-      isOnline: onlineUsers.includes(userId),
-    });
+  const goToChat = (userId: string, userName: string) => {
+    (navigation.getParent() as any)?.navigate('Chat', { userId, userName });
   };
 
   const renderItem = ({ item }: { item: any }) => (
     <ConversationItem
-      conversation={{ ...item, isOnline: onlineUsers.includes(item.userId) }}
-      onPress={() => goToChat(item.userId, item.userName, item.userAvatar)}
+      conversation={item}
+      onPress={() => goToChat(item.userId, item.userName)}
     />
   );
 
   const renderEmpty = () => (
     <View style={styles.emptyWrap}>
-      <View style={[styles.emptyBg, { backgroundColor: '#8B5CF612' }]}>
-        <Icon name="chatbubbles-outline" size={52} color="#8B5CF6" />
+      <View style={[styles.emptyBg, { backgroundColor: `${primary}12` }]}>
+        <Icon name="chatbubbles-outline" size={52} color={primary} />
       </View>
       <Text style={[styles.emptyTitle, { color: textPri }]}>
         No conversations yet
@@ -360,7 +347,7 @@ const ConversationsScreen: React.FC = () => {
         Start chatting with someone new
       </Text>
       <TouchableOpacity
-        style={[styles.emptyBtn, { backgroundColor: '#8B5CF6' }]}
+        style={[styles.emptyBtn, { backgroundColor: primary }]}
         onPress={() => setShowNewChat(true)}
       >
         <Icon name="add" size={18} color="#FFFFFF" />
@@ -385,13 +372,13 @@ const ConversationsScreen: React.FC = () => {
         <View>
           <Text style={[styles.headerTitle, { color: textPri }]}>Messages</Text>
           {unreadCount > 0 && (
-            <Text style={[styles.headerSub, { color: '#8B5CF6' }]}>
+            <Text style={[styles.headerSub, { color: primary }]}>
               {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
             </Text>
           )}
         </View>
         <TouchableOpacity
-          style={[styles.newBtn, { backgroundColor: '#8B5CF6' }]}
+          style={[styles.newBtn, { backgroundColor: primary }]}
           onPress={() => setShowNewChat(true)}
         >
           <Icon name="create-outline" size={20} color="#FFFFFF" />
@@ -410,8 +397,8 @@ const ConversationsScreen: React.FC = () => {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            colors={['#8B5CF6']}
-            tintColor="#8B5CF6"
+            colors={[primary]}
+            tintColor={primary}
           />
         }
       />

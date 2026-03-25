@@ -7,10 +7,8 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   ScrollView,
   Modal,
   TextInput,
@@ -29,6 +27,7 @@ import {
   useAddContribution,
 } from '../../../hooks/api/useSavingsGoals';
 import { AppHeader } from '../../../components/common';
+import { useConfirm } from '../../../components/common/ConfirmModal';
 import { formatCurrency } from '../../../utils/formatters';
 import type {
   SavingsGoal,
@@ -36,25 +35,19 @@ import type {
 } from '../../../api/endpoints/savingsGoals';
 
 const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
   'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
-
-const PRIORITY_CONFIG = {
-  high: { color: '#EF4444', label: 'High', icon: 'flame' },
-  medium: { color: '#F97316', label: 'Medium', icon: 'trending-up' },
-  low: { color: '#22C55E', label: 'Low', icon: 'leaf' },
-};
 
 // ─── Goal Card ────────────────────────────────────────────────────────────────
 
@@ -63,18 +56,19 @@ const GoalCard = ({
   onPress,
   onAddContribution,
   onDelete,
-  colors,
-  borderRadius,
+  isDark,
 }: {
   goal: SavingsGoal;
   onPress: () => void;
   onAddContribution: () => void;
   onDelete: () => void;
-  colors: any;
-  borderRadius: any;
+  isDark: boolean;
 }) => {
   const pct = Math.min(goal.progress ?? 0, 100);
-  const priority = PRIORITY_CONFIG[goal.priority] ?? PRIORITY_CONFIG.medium;
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
+  const borderC = isDark ? '#334155' : '#F1F5F9';
 
   const daysLeft = goal.targetDate
     ? Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / 86400000)
@@ -84,122 +78,86 @@ const GoalCard = ({
     <TouchableOpacity
       style={[
         styles.goalCard,
-        {
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
-          borderLeftColor: goal.color,
-        },
+        { backgroundColor: surfaceC, borderColor: borderC },
       ]}
       onPress={onPress}
       onLongPress={onDelete}
       activeOpacity={0.78}
     >
-      {/* Top row */}
-      <View style={styles.goalTop}>
+      <View style={styles.goalRow}>
+        {/* Icon */}
         <View
-          style={[styles.goalIconWrap, { backgroundColor: `${goal.color}18` }]}
+          style={[styles.goalIconWrap, { backgroundColor: `${goal.color}10` }]}
         >
-          <Icon name={goal.icon} size={22} color={goal.color} />
+          <Icon name={goal.icon} size={16} color={goal.color} />
         </View>
 
+        {/* Info */}
         <View style={styles.goalMeta}>
-          <Text
-            style={[styles.goalTitle, { color: colors.text.primary }]}
-            numberOfLines={1}
+          <View style={styles.goalTitleRow}>
+            <Text
+              style={[styles.goalTitle, { color: textPri }]}
+              numberOfLines={1}
+            >
+              {goal.title}
+            </Text>
+            {goal.isCompleted ? (
+              <Icon name="checkmark-circle" size={13} color="#22C55E" />
+            ) : (
+              !goal.isCompleted && (
+                <TouchableOpacity
+                  style={[
+                    styles.addContribBtn,
+                    { backgroundColor: `${goal.color}10` },
+                  ]}
+                  onPress={onAddContribution}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Icon name="add" size={14} color={goal.color} />
+                </TouchableOpacity>
+              )
+            )}
+          </View>
+
+          {/* Thin progress bar */}
+          <View
+            style={[
+              styles.progressTrack,
+              { backgroundColor: `${goal.color}12` },
+            ]}
           >
-            {goal.title}
-          </Text>
-          <View style={styles.goalBadges}>
             <View
               style={[
-                styles.priorityBadge,
-                { backgroundColor: `${priority.color}15` },
+                styles.progressFill,
+                { width: `${pct}%` as any, backgroundColor: goal.color },
               ]}
-            >
-              <Icon name={priority.icon} size={11} color={priority.color} />
-              <Text style={[styles.priorityText, { color: priority.color }]}>
-                {priority.label}
+            />
+          </View>
+
+          <View style={styles.goalBottom}>
+            <Text style={[styles.progressAmt, { color: textSec }]}>
+              {formatCurrency(goal.currentAmount)}
+              <Text style={{ color: isDark ? '#475569' : '#CBD5E1' }}>
+                {' / '}
+                {formatCurrency(goal.targetAmount)}
               </Text>
-            </View>
-            {goal.isCompleted && (
-              <View
-                style={[
-                  styles.completedBadge,
-                  { backgroundColor: '#22C55E18' },
-                ]}
-              >
-                <Icon name="checkmark-circle" size={11} color="#22C55E" />
-                <Text style={[styles.completedText, { color: '#22C55E' }]}>
-                  Done
-                </Text>
-              </View>
-            )}
-            {daysLeft !== null && !goal.isCompleted && (
-              <View
-                style={[
-                  styles.deadlineBadge,
-                  {
-                    backgroundColor:
-                      daysLeft < 30 ? '#EF444415' : `${colors.text.tertiary}15`,
-                  },
-                ]}
-              >
-                <Icon
-                  name="calendar-outline"
-                  size={11}
-                  color={daysLeft < 30 ? '#EF4444' : colors.text.tertiary}
-                />
+            </Text>
+            <View style={styles.goalTags}>
+              {daysLeft !== null && !goal.isCompleted && (
                 <Text
                   style={[
-                    styles.deadlineText,
-                    { color: daysLeft < 30 ? '#EF4444' : colors.text.tertiary },
+                    styles.tagText,
+                    { color: daysLeft < 30 ? '#EF4444' : textSec },
                   ]}
                 >
                   {daysLeft > 0 ? `${daysLeft}d left` : 'Overdue'}
                 </Text>
-              </View>
-            )}
+              )}
+              <Text style={[styles.progressPct, { color: goal.color }]}>
+                {pct.toFixed(0)}%
+              </Text>
+            </View>
           </View>
-        </View>
-
-        {!goal.isCompleted && (
-          <TouchableOpacity
-            style={[
-              styles.addContribBtn,
-              { backgroundColor: `${goal.color}18` },
-            ]}
-            onPress={onAddContribution}
-          >
-            <Icon name="add" size={20} color={goal.color} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Progress */}
-      <View style={styles.goalProgress}>
-        <View
-          style={[styles.progressTrack, { backgroundColor: `${goal.color}20` }]}
-        >
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${pct}%`, backgroundColor: goal.color },
-            ]}
-          />
-        </View>
-        <View style={styles.progressRow}>
-          <Text
-            style={[styles.progressAmounts, { color: colors.text.secondary }]}
-          >
-            {formatCurrency(goal.currentAmount)}
-            <Text style={{ color: colors.text.tertiary }}>
-              {' '}
-              / {formatCurrency(goal.targetAmount)}
-            </Text>
-          </Text>
-          <Text style={[styles.progressPct, { color: goal.color }]}>
-            {pct.toFixed(1)}%
-          </Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -210,7 +168,12 @@ const GoalCard = ({
 
 const SavingsGoalsScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { colors, spacing, borderRadius, shadows } = useTheme();
+  const { colors, isDark } = useTheme();
+
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
+  const borderC = isDark ? '#334155' : '#F1F5F9';
 
   const now = new Date();
   const [tab, setTab] = useState<'overview' | 'goals'>('overview');
@@ -220,32 +183,25 @@ const SavingsGoalsScreen: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
 
-  // Initial balance modal
+  // Modals
   const [balanceModal, setBalanceModal] = useState(false);
   const [balanceInput, setBalanceInput] = useState('');
-
-  // Quick contribute modal
   const [contribModal, setContribModal] = useState(false);
   const [contribGoal, setContribGoal] = useState<SavingsGoal | null>(null);
   const [contribInput, setContribInput] = useState('');
   const [contribNote, setContribNote] = useState('');
+  const { confirm } = useConfirm();
 
-  const {
-    data: goalsData,
-    isLoading: goalsLoading,
-    refetch,
-    isRefetching,
-  } = useSavingsGoals();
-  const { data: stats, isLoading: statsLoading } = useSavingsStats(
-    selectedYear,
-    selectedMonth,
-  );
-  console.log('stats', stats);
+  const { data: goalsData, refetch, isRefetching } = useSavingsGoals();
+  const { data: stats } = useSavingsStats(selectedYear, selectedMonth);
   const setAccountMutation = useSetSavingsAccount();
   const addContribMutation = useAddContribution();
   const deleteMutation = useDeleteSavingsGoal();
 
-  const allGoals: SavingsGoal[] = (goalsData as any)?.data?.data ?? [];
+  const allGoals: SavingsGoal[] = useMemo(
+    () => (goalsData as any)?.data?.data ?? [],
+    [goalsData],
+  );
 
   const filteredGoals = useMemo(() => {
     if (goalFilter === 'active') return allGoals.filter(g => !g.isCompleted);
@@ -270,15 +226,15 @@ const SavingsGoalsScreen: React.FC = () => {
     } else setSelectedMonth(m => m + 1);
   };
 
-  const handleDelete = (goal: SavingsGoal) =>
-    Alert.alert('Delete Goal', `Delete "${goal.title}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => deleteMutation.mutate(goal._id),
-      },
-    ]);
+  const handleDelete = async (goal: SavingsGoal) => {
+    const ok = await confirm({
+      title: 'Delete Goal',
+      message: `Delete "${goal.title}"?`,
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+    if (ok) deleteMutation.mutate(goal._id);
+  };
 
   const openContrib = (goal: SavingsGoal) => {
     setContribGoal(goal);
@@ -290,10 +246,7 @@ const SavingsGoalsScreen: React.FC = () => {
   const saveContrib = () => {
     if (!contribGoal) return;
     const val = parseFloat(contribInput);
-    if (isNaN(val) || val <= 0) {
-      Alert.alert('Invalid amount');
-      return;
-    }
+    if (isNaN(val) || val <= 0) return;
     addContribMutation.mutate(
       {
         id: contribGoal._id,
@@ -305,10 +258,7 @@ const SavingsGoalsScreen: React.FC = () => {
 
   const saveBalance = () => {
     const val = parseFloat(balanceInput);
-    if (isNaN(val) || val < 0) {
-      Alert.alert('Invalid amount');
-      return;
-    }
+    if (isNaN(val) || val < 0) return;
     setAccountMutation.mutate(val, { onSuccess: () => setBalanceModal(false) });
   };
 
@@ -316,14 +266,12 @@ const SavingsGoalsScreen: React.FC = () => {
   const totalBalance = stats?.totalBalance ?? 0;
   const initialBalance = stats?.initialBalance ?? 0;
   const allTimeSurplus = stats?.allTimeSurplus ?? 0;
-  const goalsSaved = stats?.totalCurrentAmount ?? 0;
   const thisMonthIncome = stats?.thisMonthIncome ?? 0;
   const thisMonthExp = stats?.thisMonthExpenses ?? 0;
   const surplus = stats?.thisMonthSurplus ?? 0;
   const thisMonthSaved = stats?.thisMonthSaved ?? 0;
   const surplusColor = surplus >= 0 ? '#22C55E' : '#EF4444';
   const monthlyHistory: MonthlyHistoryItem[] = stats?.monthlyHistory ?? [];
-  console.log('totalBalance:', totalBalance);
   const activeCount = allGoals.filter(g => !g.isCompleted).length;
   const completedCount = allGoals.filter(g => g.isCompleted).length;
 
@@ -333,15 +281,10 @@ const SavingsGoalsScreen: React.FC = () => {
         title="Savings"
         right={
           <TouchableOpacity
-            style={[
-              styles.addGoalBtn,
-              { backgroundColor: colors.success || '#22C55E' },
-            ]}
-            onPress={() =>
-              (navigation as any).navigate('AddSavingsGoal', { mode: 'create' })
-            }
+            style={[styles.statsBtn, { backgroundColor: '#22C55E12' }]}
+            onPress={() => (navigation as any).navigate('SavingsGoalsStats')}
           >
-            <Icon name="add" size={18} color="#FFFFFF" />
+            <Icon name="stats-chart-outline" size={20} color="#22C55E" />
           </TouchableOpacity>
         }
       />
@@ -350,7 +293,7 @@ const SavingsGoalsScreen: React.FC = () => {
       <View
         style={[
           styles.tabBar,
-          { backgroundColor: colors.surface, borderBottomColor: colors.border },
+          { backgroundColor: surfaceC, borderBottomColor: borderC },
         ]}
       >
         {(['overview', 'goals'] as const).map(t => (
@@ -367,13 +310,13 @@ const SavingsGoalsScreen: React.FC = () => {
           >
             <Icon
               name={t === 'overview' ? 'wallet-outline' : 'flag-outline'}
-              size={16}
-              color={tab === t ? '#22C55E' : colors.text.tertiary}
+              size={15}
+              color={tab === t ? '#22C55E' : textSec}
             />
             <Text
               style={[
                 styles.tabText,
-                { color: tab === t ? '#22C55E' : colors.text.secondary },
+                { color: tab === t ? '#22C55E' : textSec },
                 tab === t && { fontWeight: '700' },
               ]}
             >
@@ -385,54 +328,55 @@ const SavingsGoalsScreen: React.FC = () => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
             colors={['#22C55E']}
-            tintColor={'#22C55E'}
+            tintColor="#22C55E"
           />
         }
       >
         {/* ── OVERVIEW TAB ── */}
         {tab === 'overview' && (
           <>
-            {/* Total Balance Hero */}
+            {/* Hero Card */}
             <LinearGradient
               colors={['#16A34A', '#22C55E']}
-              style={[styles.heroCard, shadows.md]}
+              style={styles.heroCard}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <Text style={styles.heroLabel}>Total Savings Balance</Text>
+              <Text style={styles.heroLabel}>Total Savings</Text>
               <Text style={styles.heroAmount}>
                 {formatCurrency(totalBalance)}
               </Text>
 
-              <View style={styles.heroBreakdown}>
-                <View style={styles.heroBreakdownItem}>
-                  <Text style={styles.heroBreakdownVal}>
+              <View style={styles.heroGrid}>
+                <View style={styles.heroGridItem}>
+                  <Text style={styles.heroGridVal}>
                     {formatCurrency(initialBalance)}
                   </Text>
-                  <Text style={styles.heroBreakdownLabel}>Initial</Text>
+                  <Text style={styles.heroGridLabel}>Initial</Text>
                 </View>
-                <View style={styles.heroDivider} />
-                <View style={styles.heroBreakdownItem}>
+                <View style={styles.heroGridDivider} />
+                <View style={styles.heroGridItem}>
                   <Text
                     style={[
-                      styles.heroBreakdownVal,
+                      styles.heroGridVal,
                       { color: allTimeSurplus >= 0 ? '#86EFAC' : '#FCA5A5' },
                     ]}
                   >
                     {allTimeSurplus >= 0 ? '+' : ''}
                     {formatCurrency(allTimeSurplus)}
                   </Text>
-                  <Text style={styles.heroBreakdownLabel}>Net Saved</Text>
+                  <Text style={styles.heroGridLabel}>Net Saved</Text>
                 </View>
-                <View style={styles.heroDivider} />
-                <View style={styles.heroBreakdownItem}>
-                  <Text style={styles.heroBreakdownVal}>{allGoals.length}</Text>
-                  <Text style={styles.heroBreakdownLabel}>Goals</Text>
+                <View style={styles.heroGridDivider} />
+                <View style={styles.heroGridItem}>
+                  <Text style={styles.heroGridVal}>{allGoals.length}</Text>
+                  <Text style={styles.heroGridLabel}>Goals</Text>
                 </View>
               </View>
 
@@ -449,8 +393,8 @@ const SavingsGoalsScreen: React.FC = () => {
                   name={
                     initialBalance > 0 ? 'create-outline' : 'add-circle-outline'
                   }
-                  size={16}
-                  color="#FFFFFF"
+                  size={14}
+                  color="#FFF"
                 />
                 <Text style={styles.setInitialText}>
                   {initialBalance > 0
@@ -466,128 +410,90 @@ const SavingsGoalsScreen: React.FC = () => {
                 onPress={goToPrev}
                 style={[
                   styles.monthBtn,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
+                  { backgroundColor: surfaceC, borderColor: borderC },
                 ]}
               >
-                <Icon
-                  name="chevron-back"
-                  size={20}
-                  color={colors.text.primary}
-                />
+                <Icon name="chevron-back" size={18} color={textPri} />
               </TouchableOpacity>
-              <Text style={[styles.monthLabel, { color: colors.text.primary }]}>
+              <Text style={[styles.monthLabel, { color: textPri }]}>
                 {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
               </Text>
               <TouchableOpacity
                 onPress={goToNext}
                 style={[
                   styles.monthBtn,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
+                  { backgroundColor: surfaceC, borderColor: borderC },
                   isCurrentMonth && { opacity: 0.3 },
                 ]}
               >
-                <Icon
-                  name="chevron-forward"
-                  size={20}
-                  color={colors.text.primary}
-                />
+                <Icon name="chevron-forward" size={18} color={textPri} />
               </TouchableOpacity>
             </View>
 
-            {/* Monthly Analysis Card */}
+            {/* Monthly Analysis */}
             <View
               style={[
-                styles.monthlyCard,
-                { backgroundColor: colors.surface, borderColor: colors.border },
+                styles.card,
+                { backgroundColor: surfaceC, borderColor: borderC },
               ]}
             >
-              <Text
-                style={[styles.monthlyTitle, { color: colors.text.primary }]}
-              >
+              <Text style={[styles.cardTitle, { color: textPri }]}>
                 Monthly Analysis
               </Text>
 
-              <View style={styles.monthlyRow}>
-                <View
-                  style={[
-                    styles.monthlyIconWrap,
-                    { backgroundColor: '#22C55E18' },
-                  ]}
-                >
-                  <Icon name="trending-up" size={18} color="#22C55E" />
+              {[
+                {
+                  icon: 'trending-up',
+                  color: '#22C55E',
+                  label: 'Income',
+                  val: thisMonthIncome,
+                },
+                {
+                  icon: 'trending-down',
+                  color: '#EF4444',
+                  label: 'Expenses',
+                  val: thisMonthExp,
+                },
+              ].map(r => (
+                <View key={r.label} style={styles.analysisRow}>
+                  <View
+                    style={[
+                      styles.analysisIcon,
+                      { backgroundColor: `${r.color}12` },
+                    ]}
+                  >
+                    <Icon name={r.icon} size={15} color={r.color} />
+                  </View>
+                  <Text style={[styles.analysisLabel, { color: textSec }]}>
+                    {r.label}
+                  </Text>
+                  <Text style={[styles.analysisVal, { color: r.color }]}>
+                    {formatCurrency(r.val)}
+                  </Text>
                 </View>
-                <Text
-                  style={[
-                    styles.monthlyLabel,
-                    { color: colors.text.secondary },
-                  ]}
-                >
-                  Income
-                </Text>
-                <Text style={[styles.monthlyAmt, { color: '#22C55E' }]}>
-                  {formatCurrency(thisMonthIncome)}
-                </Text>
-              </View>
+              ))}
 
-              <View style={styles.monthlyRow}>
+              <View style={[styles.divider, { backgroundColor: borderC }]} />
+
+              <View style={styles.analysisRow}>
                 <View
                   style={[
-                    styles.monthlyIconWrap,
-                    { backgroundColor: '#EF444418' },
-                  ]}
-                >
-                  <Icon name="trending-down" size={18} color="#EF4444" />
-                </View>
-                <Text
-                  style={[
-                    styles.monthlyLabel,
-                    { color: colors.text.secondary },
-                  ]}
-                >
-                  Expenses
-                </Text>
-                <Text style={[styles.monthlyAmt, { color: '#EF4444' }]}>
-                  {formatCurrency(thisMonthExp)}
-                </Text>
-              </View>
-
-              <View
-                style={[
-                  styles.monthlySeparator,
-                  { backgroundColor: colors.border },
-                ]}
-              />
-
-              <View style={styles.monthlyRow}>
-                <View
-                  style={[
-                    styles.monthlyIconWrap,
-                    { backgroundColor: `${surplusColor}18` },
+                    styles.analysisIcon,
+                    { backgroundColor: `${surplusColor}12` },
                   ]}
                 >
                   <Icon
                     name={surplus >= 0 ? 'checkmark-circle' : 'alert-circle'}
-                    size={18}
+                    size={15}
                     color={surplusColor}
                   />
                 </View>
-                <Text
-                  style={[
-                    styles.monthlyLabel,
-                    { color: colors.text.secondary },
-                  ]}
-                >
+                <Text style={[styles.analysisLabel, { color: textSec }]}>
                   {surplus >= 0 ? 'Surplus' : 'Deficit'}
                 </Text>
                 <Text
                   style={[
-                    styles.monthlyAmt,
+                    styles.analysisVal,
                     { color: surplusColor, fontWeight: '800' },
                   ]}
                 >
@@ -595,24 +501,19 @@ const SavingsGoalsScreen: React.FC = () => {
                 </Text>
               </View>
 
-              <View style={styles.monthlyRow}>
+              <View style={styles.analysisRow}>
                 <View
                   style={[
-                    styles.monthlyIconWrap,
-                    { backgroundColor: '#3B82F618' },
+                    styles.analysisIcon,
+                    { backgroundColor: '#3B82F612' },
                   ]}
                 >
-                  <Icon name="save-outline" size={18} color="#3B82F6" />
+                  <Icon name="save-outline" size={15} color="#3B82F6" />
                 </View>
-                <Text
-                  style={[
-                    styles.monthlyLabel,
-                    { color: colors.text.secondary },
-                  ]}
-                >
+                <Text style={[styles.analysisLabel, { color: textSec }]}>
                   Saved to Goals
                 </Text>
-                <Text style={[styles.monthlyAmt, { color: '#3B82F6' }]}>
+                <Text style={[styles.analysisVal, { color: '#3B82F6' }]}>
                   {formatCurrency(thisMonthSaved)}
                 </Text>
               </View>
@@ -620,98 +521,80 @@ const SavingsGoalsScreen: React.FC = () => {
               {surplus > thisMonthSaved && (
                 <View
                   style={[
-                    styles.couldSaveRow,
-                    { backgroundColor: '#F59E0B18', borderColor: '#F59E0B30' },
+                    styles.tipRow,
+                    { backgroundColor: '#F59E0B10', borderColor: '#F59E0B25' },
                   ]}
                 >
-                  <Icon name="bulb-outline" size={14} color="#F59E0B" />
-                  <Text style={styles.couldSaveText}>
+                  <Icon name="bulb-outline" size={13} color="#F59E0B" />
+                  <Text style={styles.tipText}>
                     You could save{' '}
                     <Text style={{ fontWeight: '800', color: '#F59E0B' }}>
                       {formatCurrency(surplus - thisMonthSaved)}
                     </Text>{' '}
-                    more this month
+                    more
                   </Text>
                 </View>
               )}
             </View>
 
-            {/* Monthly Savings History */}
+            {/* Savings History */}
             {monthlyHistory.length > 0 && (
               <View
                 style={[
-                  styles.monthlyCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
+                  styles.card,
+                  { backgroundColor: surfaceC, borderColor: borderC },
                 ]}
               >
-                <Text
-                  style={[styles.monthlyTitle, { color: colors.text.primary }]}
-                >
+                <Text style={[styles.cardTitle, { color: textPri }]}>
                   Savings History
                 </Text>
                 {[...monthlyHistory].reverse().map((item, idx) => {
                   const isPos = item.saved >= 0;
                   const savedColor = isPos ? '#22C55E' : '#EF4444';
-                  const monthName = MONTH_NAMES[item.month - 1].slice(0, 3);
                   return (
                     <View key={`${item.year}-${item.month}`}>
                       {idx > 0 && (
                         <View
-                          style={[
-                            styles.monthlySeparator,
-                            { backgroundColor: colors.border },
-                          ]}
+                          style={[styles.divider, { backgroundColor: borderC }]}
                         />
                       )}
                       <View style={styles.historyRow}>
                         <View
                           style={[
-                            styles.historyMonthBadge,
-                            { backgroundColor: colors.background },
+                            styles.historyBadge,
+                            { backgroundColor: isDark ? '#334155' : '#F8FAFC' },
                           ]}
                         >
                           <Text
-                            style={[
-                              styles.historyMonthText,
-                              { color: colors.text.secondary },
-                            ]}
+                            style={[styles.historyMonth, { color: textSec }]}
                           >
-                            {monthName}
+                            {MONTH_NAMES[item.month - 1]}
                           </Text>
                           <Text
                             style={[
-                              styles.historyYearText,
-                              { color: colors.text.tertiary },
+                              styles.historyYear,
+                              { color: isDark ? '#475569' : '#CBD5E1' },
                             ]}
                           >
                             {item.year}
                           </Text>
                         </View>
-                        <View style={styles.historyMidCol}>
+                        <View style={styles.historyMid}>
                           <View style={styles.historyIncExp}>
-                            <Icon name="arrow-up" size={11} color="#22C55E" />
+                            <Icon name="arrow-up" size={10} color="#22C55E" />
                             <Text
-                              style={[
-                                styles.historySmall,
-                                { color: colors.text.secondary },
-                              ]}
+                              style={[styles.historySmall, { color: textSec }]}
                             >
                               {formatCurrency(item.income)}
                             </Text>
                             <Icon
                               name="arrow-down"
-                              size={11}
+                              size={10}
                               color="#EF4444"
-                              style={{ marginLeft: 6 }}
+                              style={{ marginLeft: 4 }}
                             />
                             <Text
-                              style={[
-                                styles.historySmall,
-                                { color: colors.text.secondary },
-                              ]}
+                              style={[styles.historySmall, { color: textSec }]}
                             >
                               {formatCurrency(item.expenses)}
                             </Text>
@@ -719,7 +602,7 @@ const SavingsGoalsScreen: React.FC = () => {
                           <View
                             style={[
                               styles.historyBar,
-                              { backgroundColor: colors.border },
+                              { backgroundColor: borderC },
                             ]}
                           >
                             <View
@@ -731,7 +614,7 @@ const SavingsGoalsScreen: React.FC = () => {
                                       Math.max(item.income, item.expenses, 1)) *
                                       100,
                                     100,
-                                  )}%`,
+                                  )}%` as any,
                                   backgroundColor: savedColor,
                                 },
                               ]}
@@ -747,8 +630,8 @@ const SavingsGoalsScreen: React.FC = () => {
                           </Text>
                           <Text
                             style={[
-                              styles.historyBalance,
-                              { color: colors.text.tertiary },
+                              styles.historyBal,
+                              { color: isDark ? '#475569' : '#CBD5E1' },
                             ]}
                           >
                             {formatCurrency(item.cumulativeBalance)}
@@ -765,18 +648,11 @@ const SavingsGoalsScreen: React.FC = () => {
             {activeCount > 0 && (
               <View style={styles.previewSection}>
                 <View style={styles.previewHeader}>
-                  <Text
-                    style={[
-                      styles.previewTitle,
-                      { color: colors.text.primary },
-                    ]}
-                  >
+                  <Text style={[styles.cardTitle, { color: textPri }]}>
                     Active Goals
                   </Text>
                   <TouchableOpacity onPress={() => setTab('goals')}>
-                    <Text style={[styles.previewSeeAll, { color: '#22C55E' }]}>
-                      See all →
-                    </Text>
+                    <Text style={styles.seeAll}>See all →</Text>
                   </TouchableOpacity>
                 </View>
                 {allGoals
@@ -793,14 +669,11 @@ const SavingsGoalsScreen: React.FC = () => {
                       }
                       onAddContribution={() => openContrib(goal)}
                       onDelete={() => handleDelete(goal)}
-                      colors={colors}
-                      borderRadius={borderRadius}
+                      isDark={isDark}
                     />
                   ))}
               </View>
             )}
-
-            <View style={{ height: 40 }} />
           </>
         )}
 
@@ -808,12 +681,7 @@ const SavingsGoalsScreen: React.FC = () => {
         {tab === 'goals' && (
           <>
             {/* Filter */}
-            <View
-              style={[
-                styles.goalFilterBar,
-                { borderBottomColor: colors.border },
-              ]}
-            >
+            <View style={[styles.filterBar, { borderBottomColor: borderC }]}>
               {(['active', 'all', 'completed'] as const).map(f => {
                 const count =
                   f === 'active'
@@ -826,7 +694,7 @@ const SavingsGoalsScreen: React.FC = () => {
                   <TouchableOpacity
                     key={f}
                     style={[
-                      styles.goalFilterTab,
+                      styles.filterTab,
                       isActive && {
                         borderBottomColor: '#22C55E',
                         borderBottomWidth: 2,
@@ -836,8 +704,8 @@ const SavingsGoalsScreen: React.FC = () => {
                   >
                     <Text
                       style={[
-                        styles.goalFilterText,
-                        { color: isActive ? '#22C55E' : colors.text.secondary },
+                        styles.filterText,
+                        { color: isActive ? '#22C55E' : textSec },
                         isActive && { fontWeight: '700' },
                       ]}
                     >
@@ -850,26 +718,16 @@ const SavingsGoalsScreen: React.FC = () => {
 
             {filteredGoals.length === 0 ? (
               <View style={styles.emptyWrap}>
-                <Icon
-                  name="flag-outline"
-                  size={48}
-                  color={colors.text.tertiary}
-                />
-                <Text
-                  style={[styles.emptyTitle, { color: colors.text.secondary }]}
-                >
+                <Icon name="flag-outline" size={40} color={textSec} />
+                <Text style={[styles.emptyTitle, { color: textPri }]}>
                   No goals yet
                 </Text>
-                <Text
-                  style={[styles.emptyHint, { color: colors.text.tertiary }]}
-                >
+                <Text style={[styles.emptyHint, { color: textSec }]}>
                   Tap + to create your first savings goal
                 </Text>
               </View>
             ) : (
-              <View
-                style={[styles.goalsList, { paddingHorizontal: spacing.lg }]}
-              >
+              <View style={styles.goalsList}>
                 {filteredGoals.map(goal => (
                   <GoalCard
                     key={goal._id}
@@ -881,25 +739,33 @@ const SavingsGoalsScreen: React.FC = () => {
                     }
                     onAddContribution={() => openContrib(goal)}
                     onDelete={() => handleDelete(goal)}
-                    colors={colors}
-                    borderRadius={borderRadius}
+                    isDark={isDark}
                   />
                 ))}
                 <Text
                   style={[
-                    styles.longPressHint,
-                    { color: colors.text.tertiary },
+                    styles.hint,
+                    { color: isDark ? '#475569' : '#CBD5E1' },
                   ]}
                 >
-                  Long press to delete a goal
+                  Long press to delete
                 </Text>
               </View>
             )}
-
-            <View style={{ height: 40 }} />
           </>
         )}
       </ScrollView>
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: '#22C55E' }]}
+        onPress={() =>
+          (navigation as any).navigate('AddSavingsGoal', { mode: 'create' })
+        }
+        activeOpacity={0.8}
+      >
+        <Icon name="add" size={22} color="#FFFFFF" />
+      </TouchableOpacity>
 
       {/* ── Initial Balance Modal ── */}
       <Modal
@@ -912,18 +778,16 @@ const SavingsGoalsScreen: React.FC = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
-          <View
-            style={[styles.modalSheet, { backgroundColor: colors.surface }]}
-          >
+          <View style={[styles.modalSheet, { backgroundColor: surfaceC }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
+              <Text style={[styles.modalTitle, { color: textPri }]}>
                 Initial Savings Balance
               </Text>
               <TouchableOpacity onPress={() => setBalanceModal(false)}>
-                <Icon name="close" size={22} color={colors.text.secondary} />
+                <Icon name="close" size={20} color={textSec} />
               </TouchableOpacity>
             </View>
-            <Text style={[styles.modalHint, { color: colors.text.secondary }]}>
+            <Text style={[styles.modalHint, { color: textSec }]}>
               Money you saved before using this app
             </Text>
             <View
@@ -932,18 +796,14 @@ const SavingsGoalsScreen: React.FC = () => {
                 { borderColor: '#22C55E', backgroundColor: colors.background },
               ]}
             >
-              <Text
-                style={[styles.currencySign, { color: colors.text.secondary }]}
-              >
-                ৳
-              </Text>
+              <Text style={[styles.currencySign, { color: textSec }]}>৳</Text>
               <TextInput
-                style={[styles.amountField, { color: colors.text.primary }]}
+                style={[styles.amountField, { color: textPri }]}
                 value={balanceInput}
                 onChangeText={setBalanceInput}
                 keyboardType="numeric"
                 placeholder="0"
-                placeholderTextColor={colors.text.tertiary}
+                placeholderTextColor={isDark ? '#475569' : '#CBD5E1'}
                 autoFocus
               />
             </View>
@@ -970,9 +830,7 @@ const SavingsGoalsScreen: React.FC = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
-          <View
-            style={[styles.modalSheet, { backgroundColor: colors.surface }]}
-          >
+          <View style={[styles.modalSheet, { backgroundColor: surfaceC }]}>
             {contribGoal && (
               <>
                 <View style={styles.modalHeader}>
@@ -980,30 +838,21 @@ const SavingsGoalsScreen: React.FC = () => {
                     <View
                       style={[
                         styles.contribIcon,
-                        { backgroundColor: `${contribGoal.color}18` },
+                        { backgroundColor: `${contribGoal.color}15` },
                       ]}
                     >
                       <Icon
                         name={contribGoal.icon}
-                        size={20}
+                        size={16}
                         color={contribGoal.color}
                       />
                     </View>
-                    <Text
-                      style={[
-                        styles.modalTitle,
-                        { color: colors.text.primary },
-                      ]}
-                    >
+                    <Text style={[styles.modalTitle, { color: textPri }]}>
                       {contribGoal.title}
                     </Text>
                   </View>
                   <TouchableOpacity onPress={() => setContribModal(false)}>
-                    <Icon
-                      name="close"
-                      size={22}
-                      color={colors.text.secondary}
-                    />
+                    <Icon name="close" size={20} color={textSec} />
                   </TouchableOpacity>
                 </View>
 
@@ -1014,10 +863,7 @@ const SavingsGoalsScreen: React.FC = () => {
                   ]}
                 >
                   <Text
-                    style={[
-                      styles.contribProgressText,
-                      { color: colors.text.secondary },
-                    ]}
+                    style={[styles.contribProgressText, { color: textSec }]}
                   >
                     {formatCurrency(contribGoal.currentAmount)} /{' '}
                     {formatCurrency(contribGoal.targetAmount)}
@@ -1025,14 +871,17 @@ const SavingsGoalsScreen: React.FC = () => {
                   <View
                     style={[
                       styles.contribProgressTrack,
-                      { backgroundColor: `${contribGoal.color}20` },
+                      { backgroundColor: `${contribGoal.color}15` },
                     ]}
                   >
                     <View
                       style={[
                         styles.contribProgressFill,
                         {
-                          width: `${Math.min(contribGoal.progress ?? 0, 100)}%`,
+                          width: `${Math.min(
+                            contribGoal.progress ?? 0,
+                            100,
+                          )}%` as any,
                           backgroundColor: contribGoal.color,
                         },
                       ]}
@@ -1049,21 +898,16 @@ const SavingsGoalsScreen: React.FC = () => {
                     },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.currencySign,
-                      { color: colors.text.secondary },
-                    ]}
-                  >
+                  <Text style={[styles.currencySign, { color: textSec }]}>
                     ৳
                   </Text>
                   <TextInput
-                    style={[styles.amountField, { color: colors.text.primary }]}
+                    style={[styles.amountField, { color: textPri }]}
                     value={contribInput}
                     onChangeText={setContribInput}
                     keyboardType="numeric"
                     placeholder="0"
-                    placeholderTextColor={colors.text.tertiary}
+                    placeholderTextColor={isDark ? '#475569' : '#CBD5E1'}
                     autoFocus
                   />
                 </View>
@@ -1072,15 +916,15 @@ const SavingsGoalsScreen: React.FC = () => {
                   style={[
                     styles.noteInput,
                     {
-                      borderColor: colors.border,
+                      borderColor: borderC,
                       backgroundColor: colors.background,
-                      color: colors.text.primary,
+                      color: textPri,
                     },
                   ]}
                   value={contribNote}
                   onChangeText={setContribNote}
                   placeholder="Add a note (optional)"
-                  placeholderTextColor={colors.text.tertiary}
+                  placeholderTextColor={isDark ? '#475569' : '#CBD5E1'}
                 />
 
                 <TouchableOpacity
@@ -1110,248 +954,230 @@ const SavingsGoalsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
+  statsBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   tabBar: { flexDirection: 'row', borderBottomWidth: 1, paddingHorizontal: 8 },
   tab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
+    gap: 5,
+    paddingVertical: 10,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  tabText: { fontSize: 14, fontWeight: '600' },
+  tabText: { fontSize: 13, fontWeight: '600' },
 
   heroCard: {
-    marginHorizontal: 20,
-    marginTop: 16,
-    marginBottom: 12,
-    borderRadius: 20,
-    padding: 20,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 10,
+    borderRadius: 16,
+    padding: 16,
   },
-  heroLabel: { color: '#FFFFFF99', fontSize: 13, marginBottom: 4 },
+  heroLabel: { color: '#FFFFFF90', fontSize: 12, marginBottom: 2 },
   heroAmount: {
     color: '#FFFFFF',
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: '800',
-    letterSpacing: -1,
-    marginBottom: 16,
+    letterSpacing: -0.5,
+    marginBottom: 12,
   },
-  heroBreakdown: {
+  heroGrid: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF20',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 14,
+    backgroundColor: '#FFFFFF18',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 10,
   },
-  heroBreakdownItem: { flex: 1, alignItems: 'center' },
-  heroBreakdownVal: {
+  heroGridItem: { flex: 1, alignItems: 'center' },
+  heroGridVal: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: 1,
   },
-  heroBreakdownLabel: { color: '#FFFFFF80', fontSize: 11 },
-  heroDivider: { width: 1, backgroundColor: '#FFFFFF30' },
+  heroGridLabel: { color: '#FFFFFF70', fontSize: 10 },
+  heroGridDivider: { width: 1, backgroundColor: '#FFFFFF25' },
   setInitialBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     alignSelf: 'center',
-    backgroundColor: '#FFFFFF25',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    backgroundColor: '#FFFFFF20',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  setInitialText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
+  setInitialText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
 
   monthNav: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    gap: 20,
+    paddingVertical: 10,
+    gap: 16,
   },
   monthBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  monthLabel: { fontSize: 16, fontWeight: '700' },
+  monthLabel: { fontSize: 14, fontWeight: '700' },
 
-  monthlyCard: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 16,
+  card: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 16,
+    padding: 14,
   },
-  monthlyTitle: { fontSize: 16, fontWeight: '700', marginBottom: 14 },
-  monthlyRow: {
+  cardTitle: { fontSize: 14, fontWeight: '700', marginBottom: 12 },
+
+  analysisRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 10,
   },
-  monthlyIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+  analysisIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  monthlyLabel: { flex: 1, fontSize: 14 },
-  monthlyAmt: { fontSize: 15, fontWeight: '700' },
-  monthlySeparator: { height: 1, marginBottom: 12 },
-  couldSaveRow: {
+  analysisLabel: { flex: 1, fontSize: 13 },
+  analysisVal: { fontSize: 13, fontWeight: '700' },
+  divider: { height: 1, marginBottom: 10 },
+
+  tipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 10,
-    borderRadius: 10,
+    gap: 6,
+    padding: 8,
+    borderRadius: 8,
     borderWidth: 1,
-    marginTop: 4,
+    marginTop: 2,
   },
-  couldSaveText: { flex: 1, fontSize: 12, color: '#F59E0B' },
+  tipText: { flex: 1, fontSize: 11, color: '#F59E0B' },
 
   historyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-  },
-  historyMonthBadge: {
-    width: 42,
-    alignItems: 'center',
+    gap: 8,
     paddingVertical: 6,
-    borderRadius: 8,
   },
-  historyMonthText: { fontSize: 12, fontWeight: '700' },
-  historyYearText: { fontSize: 10, marginTop: 1 },
-  historyMidCol: { flex: 1, gap: 5 },
-  historyIncExp: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  historySmall: { fontSize: 11 },
-  historyBar: { height: 4, borderRadius: 2, overflow: 'hidden' },
-  historyBarFill: { height: 4, borderRadius: 2 },
-  historyRight: { alignItems: 'flex-end', minWidth: 80 },
-  historySaved: { fontSize: 14, fontWeight: '800' },
-  historyBalance: { fontSize: 11, marginTop: 2 },
+  historyBadge: {
+    width: 38,
+    alignItems: 'center',
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  historyMonth: { fontSize: 11, fontWeight: '700' },
+  historyYear: { fontSize: 9, marginTop: 1 },
+  historyMid: { flex: 1, gap: 4 },
+  historyIncExp: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  historySmall: { fontSize: 10 },
+  historyBar: { height: 3, borderRadius: 2, overflow: 'hidden' },
+  historyBarFill: { height: 3, borderRadius: 2 },
+  historyRight: { alignItems: 'flex-end', minWidth: 70 },
+  historySaved: { fontSize: 12, fontWeight: '800' },
+  historyBal: { fontSize: 10, marginTop: 1 },
 
-  previewSection: { paddingHorizontal: 20, marginBottom: 8 },
+  previewSection: { paddingHorizontal: 16, marginBottom: 8, gap: 8 },
   previewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  previewTitle: { fontSize: 16, fontWeight: '700' },
-  previewSeeAll: { fontSize: 13, fontWeight: '600' },
+  seeAll: { fontSize: 12, fontWeight: '600', color: '#22C55E' },
 
-  goalFilterBar: {
+  filterBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
     paddingHorizontal: 8,
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  goalFilterTab: {
+  filterTab: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  goalFilterText: { fontSize: 13, fontWeight: '600' },
+  filterText: { fontSize: 12, fontWeight: '600' },
 
-  goalsList: { gap: 10 },
-  longPressHint: { textAlign: 'center', fontSize: 12, marginTop: 8 },
+  goalsList: { paddingHorizontal: 16, gap: 8 },
+  hint: { textAlign: 'center', fontSize: 11, marginTop: 6 },
 
-  goalCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderLeftWidth: 4,
-    padding: 14,
-    marginBottom: 0,
-  },
-  goalTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 12,
-  },
+  goalCard: { borderRadius: 10, borderWidth: 1, padding: 10 },
+  goalRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   goalIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   goalMeta: { flex: 1 },
-  goalTitle: { fontSize: 15, fontWeight: '700', marginBottom: 6 },
-  goalBadges: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  priorityBadge: {
+  goalTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  priorityText: { fontSize: 11, fontWeight: '700' },
-  completedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  completedText: { fontSize: 11, fontWeight: '700' },
-  deadlineBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  deadlineText: { fontSize: 11, fontWeight: '600' },
-  addContribBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  goalProgress: {},
-  progressTrack: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
+    justifyContent: 'space-between',
     marginBottom: 6,
   },
-  progressFill: { height: '100%', borderRadius: 4 },
-  progressRow: {
+  goalTitle: { fontSize: 13, fontWeight: '600', flex: 1, marginRight: 6 },
+  goalBottom: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
   },
-  progressAmounts: { fontSize: 13 },
-  progressPct: { fontSize: 13, fontWeight: '800' },
-
-  emptyWrap: { alignItems: 'center', paddingVertical: 60, gap: 10 },
-  emptyTitle: { fontSize: 16, fontWeight: '600' },
-  emptyHint: { fontSize: 13 },
-
-  addGoalBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  goalTags: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  tagText: { fontSize: 10, fontWeight: '600' },
+  addContribBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 2 },
+  progressAmt: { fontSize: 10 },
+  progressPct: { fontSize: 10, fontWeight: '700' },
+
+  emptyWrap: { alignItems: 'center', paddingVertical: 50, gap: 8 },
+  emptyTitle: { fontSize: 14, fontWeight: '600' },
+  emptyHint: { fontSize: 12 },
+
+  fab: {
+    position: 'absolute',
+    bottom: 90,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
 
   modalOverlay: {
@@ -1360,62 +1186,62 @@ const styles = StyleSheet.create({
     backgroundColor: '#00000055',
   },
   modalSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    paddingBottom: 40,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    paddingBottom: 32,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  modalTitle: { fontSize: 17, fontWeight: '700', flex: 1 },
-  modalHint: { fontSize: 13, marginBottom: 16 },
+  modalTitle: { fontSize: 15, fontWeight: '700', flex: 1 },
+  modalHint: { fontSize: 12, marginBottom: 12 },
   contribTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flex: 1,
   },
   contribIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  contribProgress: { padding: 12, borderRadius: 12, marginBottom: 14 },
-  contribProgressText: { fontSize: 13, marginBottom: 8, textAlign: 'center' },
-  contribProgressTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  contribProgress: { padding: 10, borderRadius: 10, marginBottom: 12 },
+  contribProgressText: { fontSize: 12, marginBottom: 6, textAlign: 'center' },
+  contribProgressTrack: { height: 5, borderRadius: 3, overflow: 'hidden' },
   contribProgressFill: { height: '100%', borderRadius: 3 },
   amountInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 2,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    marginBottom: 12,
-    height: 56,
-  },
-  currencySign: { fontSize: 22, fontWeight: '700', marginRight: 6 },
-  amountField: { flex: 1, fontSize: 26, fontWeight: '800' },
-  noteInput: {
     borderWidth: 1.5,
     borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    marginBottom: 16,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    height: 48,
+  },
+  currencySign: { fontSize: 18, fontWeight: '700', marginRight: 4 },
+  amountField: { flex: 1, fontSize: 22, fontWeight: '800' },
+  noteInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    marginBottom: 12,
   },
   saveBtn: {
-    height: 50,
-    borderRadius: 14,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  saveBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
+  saveBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 });
 
 export default SavingsGoalsScreen;

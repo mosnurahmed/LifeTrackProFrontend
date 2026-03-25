@@ -3,26 +3,24 @@
  */
 
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Dimensions,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { PieChart, ProgressChart, BarChart } from 'react-native-chart-kit';
+import Svg, { Circle } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
 import { useTaskStats, useTasks } from '../../../hooks/api/useTasks';
-import { Card, Spinner, ErrorState, AppHeader } from '../../../components/common';
-
-const { width } = Dimensions.get('window');
+import { Spinner, ErrorState, AppHeader } from '../../../components/common';
 
 const TaskStatsScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { colors, textStyles, spacing, borderRadius, shadows } = useTheme();
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
+  const borderC = isDark ? '#334155' : '#F1F5F9';
 
   const { data: statsData, isLoading, error } = useTaskStats();
   const { data: tasksData } = useTasks();
@@ -30,530 +28,198 @@ const TaskStatsScreen: React.FC = () => {
   const stats = statsData?.data;
   const tasks = tasksData?.data?.data || [];
 
-  const styles = createStyles(
-    colors,
-    textStyles,
-    spacing,
-    borderRadius,
-    shadows,
+  if (isLoading) return (
+    <View style={[s.container, { backgroundColor: colors.background }]}>
+      <AppHeader title="Task Statistics" />
+      <Spinner text="Loading..." />
+    </View>
   );
 
-  const chartConfig = {
-    backgroundGradientFrom: colors.surface,
-    backgroundGradientTo: colors.surface,
-    decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
-    labelColor: (opacity = 1) => colors.text.secondary,
-    style: {
-      borderRadius: borderRadius.md,
-    },
-  };
+  if (error || !stats) return (
+    <View style={[s.container, { backgroundColor: colors.background }]}>
+      <AppHeader title="Task Statistics" />
+      <ErrorState title="Failed to load" message="Please try again" onRetry={() => navigation.goBack()} />
+    </View>
+  );
 
-  // Pie chart data for status distribution
-  const pieChartData = [
-    {
-      name: 'To Do',
-      population: stats?.todo || 0,
-      color: colors.warning,
-      legendFontColor: colors.text.primary,
-      legendFontSize: 12,
-    },
-    {
-      name: 'In Progress',
-      population: stats?.inProgress || 0,
-      color: colors.primary,
-      legendFontColor: colors.text.primary,
-      legendFontSize: 12,
-    },
-    {
-      name: 'Completed',
-      population: stats?.completed || 0,
-      color: colors.success,
-      legendFontColor: colors.text.primary,
-      legendFontSize: 12,
-    },
-    {
-      name: 'Cancelled',
-      population: stats?.cancelled || 0,
-      color: colors.text.tertiary,
-      legendFontColor: colors.text.primary,
-      legendFontSize: 12,
-    },
-  ].filter(item => item.population > 0);
+  const completionRate = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
+  const circumference = 2 * Math.PI * 55;
 
-  // Priority breakdown
   const priorityBreakdown = [
-    {
-      name: 'Urgent',
-      count: tasks.filter((t: any) => t.priority === 'urgent').length,
-      color: colors.danger,
-    },
-    {
-      name: 'High',
-      count: tasks.filter((t: any) => t.priority === 'high').length,
-      color: colors.warning,
-    },
-    {
-      name: 'Medium',
-      count: tasks.filter((t: any) => t.priority === 'medium').length,
-      color: colors.info,
-    },
-    {
-      name: 'Low',
-      count: tasks.filter((t: any) => t.priority === 'low').length,
-      color: colors.text.tertiary,
-    },
+    { label: 'Urgent', count: tasks.filter((t: any) => t.priority === 'urgent').length, color: '#EF4444', icon: 'flame' },
+    { label: 'High', count: tasks.filter((t: any) => t.priority === 'high').length, color: '#F97316', icon: 'arrow-up-circle' },
+    { label: 'Medium', count: tasks.filter((t: any) => t.priority === 'medium').length, color: '#F59E0B', icon: 'remove-circle' },
+    { label: 'Low', count: tasks.filter((t: any) => t.priority === 'low').length, color: '#64748B', icon: 'arrow-down-circle' },
   ];
 
-  // Completion rate
-  const completionRate =
-    stats?.total > 0 ? (stats.completed / stats.total) * 100 : 0;
-
-  const progressData = {
-    labels: ['Completion'],
-    data: [completionRate / 100],
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <Spinner text="Loading statistics..." />
-      </View>
-    );
-  }
-
-  if (error || !stats) {
-    return (
-      <View style={styles.container}>
-        <ErrorState
-          title="Failed to load statistics"
-          message="Please try again"
-          onRetry={() => navigation.goBack()}
-        />
-      </View>
-    );
-  }
+  const statusBreakdown = [
+    { label: 'To Do', count: stats.todo, color: '#64748B' },
+    { label: 'In Progress', count: stats.inProgress, color: '#3B82F6' },
+    { label: 'Completed', count: stats.completed, color: '#22C55E' },
+    { label: 'Cancelled', count: stats.cancelled, color: '#94A3B8' },
+  ];
 
   return (
-    <View style={styles.container}>
+    <View style={[s.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Task Statistics" />
 
-      <ScrollView style={styles.content}>
-        {/* Summary Cards */}
-        <View style={styles.summaryGrid}>
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryIcon}>
-              <Icon name="list" size={28} color={colors.primary} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
+        {/* Summary Row */}
+        <View style={s.summaryRow}>
+          {[
+            { icon: 'list-outline', color: colors.primary, val: stats.total, label: 'Total' },
+            { icon: 'checkmark-circle-outline', color: '#22C55E', val: stats.completed, label: 'Done' },
+            { icon: 'alert-circle-outline', color: '#EF4444', val: stats.overdue, label: 'Overdue' },
+            { icon: 'today-outline', color: '#F59E0B', val: stats.dueToday, label: 'Today' },
+          ].map(item => (
+            <View key={item.label} style={[s.summaryCard, { backgroundColor: surfaceC, borderColor: borderC }]}>
+              <View style={[s.summaryIcon, { backgroundColor: `${item.color}10` }]}>
+                <Icon name={item.icon} size={14} color={item.color} />
+              </View>
+              <Text style={[s.summaryVal, { color: textPri }]}>{item.val}</Text>
+              <Text style={[s.summaryLabel, { color: textSec }]}>{item.label}</Text>
             </View>
-            <Text style={styles.summaryValue}>{stats.total}</Text>
-            <Text style={styles.summaryLabel}>Total Tasks</Text>
-          </Card>
-
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryIcon}>
-              <Icon name="checkmark-circle" size={28} color={colors.success} />
-            </View>
-            <Text style={styles.summaryValue}>{stats.completed}</Text>
-            <Text style={styles.summaryLabel}>Completed</Text>
-          </Card>
-
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryIcon}>
-              <Icon name="alert-circle" size={28} color={colors.danger} />
-            </View>
-            <Text style={styles.summaryValue}>{stats.overdue}</Text>
-            <Text style={styles.summaryLabel}>Overdue</Text>
-          </Card>
-
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryIcon}>
-              <Icon name="today" size={28} color={colors.warning} />
-            </View>
-            <Text style={styles.summaryValue}>{stats.dueToday}</Text>
-            <Text style={styles.summaryLabel}>Due Today</Text>
-          </Card>
+          ))}
         </View>
 
-        {/* Completion Rate */}
-        <Card style={styles.progressCard}>
-          <View style={styles.cardHeader}>
-            <Icon name="trending-up" size={20} color={colors.success} />
-            <Text style={styles.cardTitle}>Completion Rate</Text>
-          </View>
-
-          <View style={styles.chartWrapper}>
-            <ProgressChart
-              data={progressData}
-              width={width - 80}
-              height={180}
-              strokeWidth={16}
-              radius={60}
-              chartConfig={{
-                ...chartConfig,
-                color: (opacity = 1) => colors.success,
-              }}
-              hideLegend
-            />
-            <View style={styles.progressCenter}>
-              <Text style={styles.progressCenterValue}>
-                {completionRate.toFixed(1)}%
-              </Text>
-              <Text style={styles.progressCenterLabel}>Completed</Text>
+        {/* Completion Donut */}
+        <View style={[s.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          <Text style={[s.cardTitle, { color: textPri }]}>Completion Rate</Text>
+          <View style={s.donutWrap}>
+            <Svg width={130} height={130} viewBox="0 0 130 130">
+              <Circle cx="65" cy="65" r="55" stroke={borderC} strokeWidth={10} fill="none" />
+              <Circle
+                cx="65" cy="65" r="55"
+                stroke="#22C55E"
+                strokeWidth={10}
+                fill="none"
+                strokeDasharray={`${(Math.min(completionRate, 100) / 100) * circumference} ${circumference}`}
+                strokeLinecap="round"
+                transform="rotate(-90 65 65)"
+              />
+            </Svg>
+            <View style={s.donutCenter}>
+              <Text style={[s.donutPct, { color: textPri }]}>{completionRate.toFixed(0)}%</Text>
+              <Text style={[s.donutLabel, { color: textSec }]}>done</Text>
             </View>
           </View>
-
-          <View style={styles.completionStats}>
-            <View style={styles.completionStatItem}>
-              <Text style={styles.completionStatLabel}>Completed</Text>
-              <Text
-                style={[styles.completionStatValue, { color: colors.success }]}
-              >
-                {stats.completed}
-              </Text>
+          <View style={s.completionRow}>
+            <View style={s.completionItem}>
+              <Text style={[s.completionVal, { color: '#22C55E' }]}>{stats.completed}</Text>
+              <Text style={[s.completionLabel, { color: textSec }]}>Done</Text>
             </View>
-            <View style={styles.completionStatItem}>
-              <Text style={styles.completionStatLabel}>Pending</Text>
-              <Text
-                style={[styles.completionStatValue, { color: colors.warning }]}
-              >
-                {stats.todo + stats.inProgress}
-              </Text>
+            <View style={s.completionItem}>
+              <Text style={[s.completionVal, { color: '#F59E0B' }]}>{stats.todo + stats.inProgress}</Text>
+              <Text style={[s.completionLabel, { color: textSec }]}>Pending</Text>
             </View>
-            <View style={styles.completionStatItem}>
-              <Text style={styles.completionStatLabel}>Cancelled</Text>
-              <Text
-                style={[
-                  styles.completionStatValue,
-                  { color: colors.text.tertiary },
-                ]}
-              >
-                {stats.cancelled}
-              </Text>
+            <View style={s.completionItem}>
+              <Text style={[s.completionVal, { color: '#94A3B8' }]}>{stats.cancelled}</Text>
+              <Text style={[s.completionLabel, { color: textSec }]}>Cancelled</Text>
             </View>
           </View>
-        </Card>
+        </View>
 
-        {/* Status Distribution */}
-        {pieChartData.length > 0 && (
-          <Card style={styles.chartCard}>
-            <View style={styles.cardHeader}>
-              <Icon name="pie-chart" size={20} color={colors.primary} />
-              <Text style={styles.cardTitle}>Status Distribution</Text>
-            </View>
-            <PieChart
-              data={pieChartData}
-              width={width - 60}
-              height={220}
-              chartConfig={chartConfig}
-              accessor="population"
-              backgroundColor="transparent"
-              paddingLeft="15"
-              center={[10, 0]}
-              absolute
-            />
-          </Card>
-        )}
-
-        {/* Priority Breakdown */}
-        <Card style={styles.priorityCard}>
-          <View style={styles.cardHeader}>
-            <Icon name="flag" size={20} color={colors.danger} />
-            <Text style={styles.cardTitle}>Priority Breakdown</Text>
-          </View>
-
-          {priorityBreakdown.map((priority, index) => (
-            <View key={priority.name} style={styles.priorityRow}>
-              <View style={styles.priorityLeft}>
-                <View
-                  style={[
-                    styles.priorityDot,
-                    { backgroundColor: priority.color },
-                  ]}
-                />
-                <Text style={styles.priorityName}>{priority.name}</Text>
-              </View>
-              <View style={styles.priorityRight}>
-                <Text style={styles.priorityCount}>{priority.count}</Text>
-                <View style={styles.priorityBarContainer}>
-                  <View
-                    style={[
-                      styles.priorityBar,
-                      {
-                        width:
-                          stats.total > 0
-                            ? `${(priority.count / stats.total) * 100}%`
-                            : '0%',
-                        backgroundColor: priority.color,
-                      },
-                    ]}
-                  />
+        {/* Status Breakdown */}
+        <View style={[s.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          <Text style={[s.cardTitle, { color: textPri }]}>Status Breakdown</Text>
+          {statusBreakdown.map((item, i) => (
+            <View key={item.label}>
+              {i > 0 && <View style={[s.divider, { backgroundColor: borderC }]} />}
+              <View style={s.breakdownRow}>
+                <View style={[s.breakdownDot, { backgroundColor: item.color }]} />
+                <Text style={[s.breakdownLabel, { color: textSec }]}>{item.label}</Text>
+                <Text style={[s.breakdownCount, { color: textPri }]}>{item.count}</Text>
+                <View style={[s.breakdownBar, { backgroundColor: borderC }]}>
+                  <View style={[s.breakdownBarFill, {
+                    width: `${stats.total > 0 ? (item.count / stats.total) * 100 : 0}%` as any,
+                    backgroundColor: item.color,
+                  }]} />
                 </View>
               </View>
             </View>
           ))}
-        </Card>
+        </View>
+
+        {/* Priority Breakdown */}
+        <View style={[s.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          <Text style={[s.cardTitle, { color: textPri }]}>Priority Breakdown</Text>
+          {priorityBreakdown.map((item, i) => (
+            <View key={item.label}>
+              {i > 0 && <View style={[s.divider, { backgroundColor: borderC }]} />}
+              <View style={s.breakdownRow}>
+                <View style={[s.priorityIcon, { backgroundColor: `${item.color}10` }]}>
+                  <Icon name={item.icon} size={12} color={item.color} />
+                </View>
+                <Text style={[s.breakdownLabel, { color: textSec }]}>{item.label}</Text>
+                <Text style={[s.breakdownCount, { color: textPri }]}>{item.count}</Text>
+                <View style={[s.breakdownBar, { backgroundColor: borderC }]}>
+                  <View style={[s.breakdownBarFill, {
+                    width: `${stats.total > 0 ? (item.count / stats.total) * 100 : 0}%` as any,
+                    backgroundColor: item.color,
+                  }]} />
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
 
         {/* Insights */}
-        <Card style={styles.insightsCard}>
-          <View style={styles.cardHeader}>
-            <Icon name="bulb" size={20} color={colors.warning} />
-            <Text style={styles.cardTitle}>Insights</Text>
-          </View>
-
-          <View style={styles.insightItem}>
-            <Icon name="checkmark-circle" size={18} color={colors.success} />
-            <Text style={styles.insightText}>
-              You've completed{' '}
-              <Text style={styles.insightHighlight}>{stats.completed}</Text> out
-              of <Text style={styles.insightHighlight}>{stats.total}</Text>{' '}
-              tasks
-            </Text>
-          </View>
-
-          {stats.overdue > 0 && (
-            <View style={styles.insightItem}>
-              <Icon name="alert-circle" size={18} color={colors.danger} />
-              <Text style={styles.insightText}>
-                <Text style={styles.insightHighlight}>{stats.overdue}</Text>{' '}
-                task
-                {stats.overdue !== 1 ? 's are' : ' is'} overdue. Consider
-                rescheduling or completing them.
-              </Text>
+        <View style={[s.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          <Text style={[s.cardTitle, { color: textPri }]}>Insights</Text>
+          {[
+            { icon: 'checkmark-circle', color: '#22C55E', text: `Completed ${stats.completed} of ${stats.total} tasks` },
+            stats.overdue > 0 ? { icon: 'alert-circle', color: '#EF4444', text: `${stats.overdue} task${stats.overdue !== 1 ? 's' : ''} overdue — consider rescheduling` } : null,
+            stats.dueToday > 0 ? { icon: 'today', color: '#F59E0B', text: `${stats.dueToday} task${stats.dueToday !== 1 ? 's' : ''} due today` } : null,
+            stats.inProgress > 0 ? { icon: 'play', color: '#3B82F6', text: `${stats.inProgress} task${stats.inProgress !== 1 ? 's' : ''} in progress` } : null,
+            completionRate >= 80 ? { icon: 'trophy', color: '#F59E0B', text: `Great work! ${completionRate.toFixed(0)}% completion rate` } : null,
+          ].filter(Boolean).map((ins: any, idx) => (
+            <View key={idx} style={s.insightRow}>
+              <View style={[s.insightDot, { backgroundColor: `${ins.color}12` }]}>
+                <Icon name={ins.icon} size={13} color={ins.color} />
+              </View>
+              <Text style={[s.insightText, { color: textSec }]}>{ins.text}</Text>
             </View>
-          )}
-
-          {stats.dueToday > 0 && (
-            <View style={styles.insightItem}>
-              <Icon name="today" size={18} color={colors.warning} />
-              <Text style={styles.insightText}>
-                <Text style={styles.insightHighlight}>{stats.dueToday}</Text>{' '}
-                task
-                {stats.dueToday !== 1 ? 's are' : ' is'} due today. Stay
-                focused!
-              </Text>
-            </View>
-          )}
-
-          {stats.inProgress > 0 && (
-            <View style={styles.insightItem}>
-              <Icon name="play" size={18} color={colors.primary} />
-              <Text style={styles.insightText}>
-                You have{' '}
-                <Text style={styles.insightHighlight}>{stats.inProgress}</Text>{' '}
-                task
-                {stats.inProgress !== 1 ? 's' : ''} in progress
-              </Text>
-            </View>
-          )}
-
-          {completionRate >= 80 && (
-            <View style={styles.insightItem}>
-              <Icon name="trophy" size={18} color={colors.warning} />
-              <Text style={styles.insightText}>
-                Excellent work! Your completion rate is{' '}
-                <Text style={styles.insightHighlight}>
-                  {completionRate.toFixed(1)}%
-                </Text>
-              </Text>
-            </View>
-          )}
-        </Card>
-
-        <View style={{ height: 30 }} />
+          ))}
+        </View>
       </ScrollView>
     </View>
   );
 };
 
-const createStyles = (
-  colors: any,
-  textStyles: any,
-  spacing: any,
-  borderRadius: any,
-  shadows: any,
-) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    headerTitle: {
-      ...textStyles.h3,
-      color: colors.text.primary,
-    },
-    content: {
-      flex: 1,
-      padding: spacing.lg,
-    },
-    summaryGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.md,
-      marginBottom: spacing.lg,
-    },
-    summaryCard: {
-      width: '47%',
-      alignItems: 'center',
-      paddingVertical: spacing.lg,
-    },
-    summaryIcon: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: colors.background,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: spacing.md,
-    },
-    summaryValue: {
-      ...textStyles.h2,
-      color: colors.text.primary,
-      fontWeight: '700',
-      marginBottom: spacing.xs,
-    },
-    summaryLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-    },
-    progressCard: {
-      marginBottom: spacing.lg,
-    },
-    cardHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      marginBottom: spacing.md,
-    },
-    cardTitle: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      fontWeight: '600',
-    },
-    chartWrapper: {
-      alignItems: 'center',
-      marginVertical: spacing.md,
-      position: 'relative',
-    },
-    progressCenter: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    progressCenterValue: {
-      ...textStyles.h1,
-      color: colors.text.primary,
-      fontWeight: '700',
-    },
-    progressCenterLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      marginTop: spacing.xs,
-    },
-    completionStats: {
-      flexDirection: 'row',
-      gap: spacing.md,
-    },
-    completionStatItem: {
-      flex: 1,
-      backgroundColor: colors.background,
-      padding: spacing.md,
-      borderRadius: borderRadius.md,
-      alignItems: 'center',
-    },
-    completionStatLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      marginBottom: spacing.xs,
-    },
-    completionStatValue: {
-      ...textStyles.h4,
-      fontWeight: '700',
-    },
-    chartCard: {
-      marginBottom: spacing.lg,
-    },
-    priorityCard: {
-      marginBottom: spacing.lg,
-    },
-    priorityRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    priorityLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-    },
-    priorityDot: {
-      width: 12,
-      height: 12,
-      borderRadius: 6,
-    },
-    priorityName: {
-      ...textStyles.body,
-      color: colors.text.primary,
-    },
-    priorityRight: {
-      alignItems: 'flex-end',
-      flex: 1,
-    },
-    priorityCount: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      fontWeight: '700',
-      marginBottom: spacing.xs,
-    },
-    priorityBarContainer: {
-      width: '100%',
-      height: 6,
-      backgroundColor: colors.border,
-      borderRadius: 3,
-      overflow: 'hidden',
-    },
-    priorityBar: {
-      height: '100%',
-      borderRadius: 3,
-    },
-    insightsCard: {
-      //   backgroundColor: `${colors.primary}10`,
-      borderWidth: 1,
-      borderColor: `${colors.primary}30`,
-      marginBottom: spacing.lg,
-    },
-    insightItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      paddingVertical: spacing.sm,
-    },
-    insightText: {
-      ...textStyles.body,
-      color: colors.text.secondary,
-      flex: 1,
-      lineHeight: 22,
-    },
-    insightHighlight: {
-      color: colors.text.primary,
-      fontWeight: '700',
-    },
-  });
+const s = StyleSheet.create({
+  container: { flex: 1 },
+
+  summaryRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginTop: 12, marginBottom: 12 },
+  summaryCard: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1, gap: 3 },
+  summaryIcon: { width: 28, height: 28, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  summaryVal: { fontSize: 16, fontWeight: '800' },
+  summaryLabel: { fontSize: 9 },
+
+  card: { marginHorizontal: 16, marginBottom: 12, borderRadius: 12, borderWidth: 1, padding: 14 },
+  cardTitle: { fontSize: 14, fontWeight: '700', marginBottom: 12 },
+  divider: { height: 1, marginVertical: 8 },
+
+  donutWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  donutCenter: { position: 'absolute', alignItems: 'center' },
+  donutPct: { fontSize: 22, fontWeight: '800' },
+  donutLabel: { fontSize: 10, marginTop: -2 },
+
+  completionRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  completionItem: { alignItems: 'center', gap: 2 },
+  completionVal: { fontSize: 16, fontWeight: '800' },
+  completionLabel: { fontSize: 10 },
+
+  breakdownRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  breakdownDot: { width: 8, height: 8, borderRadius: 4 },
+  priorityIcon: { width: 24, height: 24, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
+  breakdownLabel: { fontSize: 12, width: 75 },
+  breakdownCount: { fontSize: 13, fontWeight: '700', width: 24, textAlign: 'center' },
+  breakdownBar: { flex: 1, height: 4, borderRadius: 2, overflow: 'hidden' },
+  breakdownBarFill: { height: '100%', borderRadius: 2 },
+
+  insightRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
+  insightDot: { width: 24, height: 24, borderRadius: 6, justifyContent: 'center', alignItems: 'center', marginTop: 1 },
+  insightText: { flex: 1, fontSize: 12, lineHeight: 17 },
+});
 
 export default TaskStatsScreen;

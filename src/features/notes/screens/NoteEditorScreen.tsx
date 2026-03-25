@@ -5,18 +5,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ScrollView, KeyboardAvoidingView, Platform, Alert, Animated,
+  ScrollView, KeyboardAvoidingView, Platform, Modal,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
+import { useConfirm } from '../../../components/common/ConfirmModal';
 import {
   useNote, useCreateNote, useUpdateNote, useDeleteNote,
   useTogglePin, useToggleArchive,
 } from '../../../hooks/api/useNotes';
-
-// ─── Color Palette ────────────────────────────────────────────────────────────
 
 const COLORS = [
   { hex: '#FFFFFF', label: 'Default' },
@@ -30,13 +29,13 @@ const COLORS = [
   { hex: '#E2E8F0', label: 'Gray' },
 ];
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
-
 const NoteEditorScreen: React.FC = () => {
   const navigation = useNavigation();
-  const route      = useRoute();
-  const insets     = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const route = useRoute();
+  const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const { confirm } = useConfirm();
+  const primary = colors.primary;
 
   const { mode, noteId } = (route.params as any) || {};
   const isEdit = mode === 'edit' && !!noteId;
@@ -45,24 +44,22 @@ const NoteEditorScreen: React.FC = () => {
   const createMutation = useCreateNote();
   const updateMutation = useUpdateNote();
   const deleteMutation = useDeleteNote();
-  const pinMutation    = useTogglePin();
+  const pinMutation = useTogglePin();
   const archiveMutation = useToggleArchive();
 
-  const [title,     setTitle]     = useState('');
-  const [content,   setContent]   = useState('');
-  const [color,     setColor]     = useState('#FFFFFF');
-  const [tags,      setTags]      = useState<string[]>([]);
-  const [tagInput,  setTagInput]  = useState('');
-  const [isPinned,  setIsPinned]  = useState(false);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [color, setColor] = useState('#FFFFFF');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  const [isPinned, setIsPinned] = useState(false);
   const [isArchived, setIsArchived] = useState(false);
-  const [showColors, setShowColors] = useState(false);
-  const [showTagInput, setShowTagInput] = useState(false);
+  const [showColorSheet, setShowColorSheet] = useState(false);
+  const [showTagSheet, setShowTagSheet] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
   const contentRef = useRef<TextInput>(null);
-  const colorAnim  = useRef(new Animated.Value(0)).current;
 
-  // Load existing note
   const existingNote = (noteData as any)?.data?.data ?? (noteData as any)?.data;
   useEffect(() => {
     if (existingNote && isEdit) {
@@ -75,137 +72,84 @@ const NoteEditorScreen: React.FC = () => {
     }
   }, [existingNote, isEdit]);
 
-  const toggleColors = () => {
-    const toVal = showColors ? 0 : 1;
-    setShowColors(!showColors);
-    Animated.spring(colorAnim, { toValue: toVal, useNativeDriver: false }).start();
-  };
-
   const addTag = () => {
     const t = tagInput.trim().toLowerCase().replace(/\s+/g, '-');
-    if (t && !tags.includes(t) && tags.length < 10) {
-      setTags(prev => [...prev, t]);
-      setIsDirty(true);
-    }
+    if (t && !tags.includes(t) && tags.length < 10) { setTags(prev => [...prev, t]); setIsDirty(true); }
     setTagInput('');
   };
 
-  const removeTag = (tag: string) => {
-    setTags(prev => prev.filter(t => t !== tag));
-    setIsDirty(true);
-  };
+  const removeTag = (tag: string) => { setTags(prev => prev.filter(t => t !== tag)); setIsDirty(true); };
 
   const handleSave = () => {
-    if (!content.trim() && !title.trim()) {
-      navigation.goBack();
-      return;
-    }
-    const payload = {
-      title:      title.trim(),
-      content:    content.trim() || ' ',
-      color,
-      tags,
-      isPinned,
-      isArchived,
-    };
-    if (isEdit) {
-      updateMutation.mutate({ id: noteId, data: payload }, { onSuccess: () => navigation.goBack() });
-    } else {
-      createMutation.mutate(payload, { onSuccess: () => navigation.goBack() });
-    }
+    if (!content.trim() && !title.trim()) { navigation.goBack(); return; }
+    const payload = { title: title.trim(), content: content.trim() || ' ', color, tags, isPinned, isArchived };
+    if (isEdit) updateMutation.mutate({ id: noteId, data: payload }, { onSuccess: () => navigation.goBack() });
+    else createMutation.mutate(payload, { onSuccess: () => navigation.goBack() });
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
     if (isDirty || (!isEdit && (title.trim() || content.trim()))) {
-      Alert.alert('Save note?', 'You have unsaved changes.', [
-        { text: 'Discard', style: 'destructive', onPress: () => navigation.goBack() },
-        { text: 'Save', onPress: handleSave },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    } else {
-      navigation.goBack();
-    }
+      const ok = await confirm({ title: 'Save note?', message: 'You have unsaved changes.', confirmText: 'Save', cancelText: 'Discard', variant: 'warning' });
+      if (ok) handleSave(); else navigation.goBack();
+    } else navigation.goBack();
   };
 
-  const handleDelete = () => {
-    Alert.alert('Delete Note', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => {
-        deleteMutation.mutate(noteId, { onSuccess: () => navigation.goBack() });
-      }},
-    ]);
+  const handleDelete = async () => {
+    const ok = await confirm({ title: 'Delete Note', message: 'This cannot be undone.', confirmText: 'Delete', variant: 'danger' });
+    if (ok) deleteMutation.mutate(noteId, { onSuccess: () => navigation.goBack() });
   };
 
-  const isDark    = colors.background === '#0F172A';
-  const bgColor   = isDark ? colors.surface : (color !== '#FFFFFF' ? color : colors.background);
-  const textColor = isDark ? colors.text.primary : '#1E293B';
-  const subColor  = isDark ? colors.text.secondary : '#64748B';
-  const isSaving  = createMutation.isPending || updateMutation.isPending;
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const bgColor = isDark ? colors.surface : (color !== '#FFFFFF' ? color : colors.background);
+  const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: bgColor }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={[s.container, { backgroundColor: bgColor }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10, borderBottomColor: `${textColor}15` }]}>
-        <TouchableOpacity style={styles.headerBtn} onPress={handleBack}>
-          <Icon name="arrow-back" size={24} color={textColor} />
+      <View style={[s.header, { paddingTop: insets.top + 8, borderBottomColor: `${textPri}10` }]}>
+        <TouchableOpacity style={s.headerBtn} onPress={handleBack}>
+          <Icon name="arrow-back" size={22} color={textPri} />
         </TouchableOpacity>
 
-        <View style={styles.headerActions}>
-          {/* Pin */}
+        <View style={s.headerActions}>
           <TouchableOpacity
-            style={[styles.headerActionBtn, isPinned && { backgroundColor: '#8B5CF620' }]}
-            onPress={() => {
-              if (isEdit) { pinMutation.mutate(noteId); setIsPinned(p => !p); }
-              else setIsPinned(p => !p);
-              setIsDirty(true);
-            }}
+            style={[s.actionBtn, isPinned && { backgroundColor: `${primary}15` }]}
+            onPress={() => { if (isEdit) { pinMutation.mutate(noteId); setIsPinned(p => !p); } else setIsPinned(p => !p); setIsDirty(true); }}
           >
-            <Icon name={isPinned ? 'pin' : 'pin-outline'} size={20} color={isPinned ? '#8B5CF6' : subColor} />
+            <Icon name={isPinned ? 'pin' : 'pin-outline'} size={18} color={isPinned ? primary : textSec} />
           </TouchableOpacity>
 
-          {/* Archive */}
           {isEdit && (
             <TouchableOpacity
-              style={[styles.headerActionBtn, isArchived && { backgroundColor: '#F59E0B20' }]}
-              onPress={() => {
-                archiveMutation.mutate(noteId, { onSuccess: () => {
-                  setIsArchived(p => !p);
-                  if (!isArchived) navigation.goBack();
-                }});
-              }}
+              style={[s.actionBtn, isArchived && { backgroundColor: '#F59E0B15' }]}
+              onPress={() => archiveMutation.mutate(noteId, { onSuccess: () => { setIsArchived(p => !p); if (!isArchived) navigation.goBack(); } })}
             >
-              <Icon name={isArchived ? 'archive' : 'archive-outline'} size={20}
-                color={isArchived ? '#F59E0B' : subColor} />
+              <Icon name={isArchived ? 'archive' : 'archive-outline'} size={18} color={isArchived ? '#F59E0B' : textSec} />
             </TouchableOpacity>
           )}
 
-          {/* Delete */}
           {isEdit && (
-            <TouchableOpacity style={styles.headerActionBtn} onPress={handleDelete}>
-              <Icon name="trash-outline" size={20} color="#EF4444" />
+            <TouchableOpacity style={s.actionBtn} onPress={handleDelete}>
+              <Icon name="trash-outline" size={18} color="#EF4444" />
             </TouchableOpacity>
           )}
 
-          {/* Save */}
           <TouchableOpacity
-            style={[styles.saveBtn, { backgroundColor: '#8B5CF6' }]}
+            style={[s.saveBtn, { backgroundColor: primary, opacity: isSaving ? 0.6 : 1 }]}
             onPress={handleSave}
             disabled={isSaving}
           >
-            <Text style={styles.saveBtnText}>{isSaving ? 'Saving…' : 'Save'}</Text>
+            <Text style={s.saveBtnText}>{isSaving ? 'Saving…' : 'Save'}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
-        {/* Title */}
+      <ScrollView style={s.body} keyboardShouldPersistTaps="handled">
         <TextInput
-          style={[styles.titleInput, { color: textColor }]}
+          style={[s.titleInput, { color: textPri }]}
           placeholder="Title"
-          placeholderTextColor={`${textColor}50`}
+          placeholderTextColor={`${textPri}40`}
           value={title}
           onChangeText={t => { setTitle(t); setIsDirty(true); }}
           multiline
@@ -213,12 +157,11 @@ const NoteEditorScreen: React.FC = () => {
           onSubmitEditing={() => contentRef.current?.focus()}
         />
 
-        {/* Content */}
         <TextInput
           ref={contentRef}
-          style={[styles.contentInput, { color: textColor }]}
+          style={[s.contentInput, { color: textPri }]}
           placeholder="Start writing…"
-          placeholderTextColor={`${textColor}40`}
+          placeholderTextColor={`${textPri}30`}
           value={content}
           onChangeText={t => { setContent(t); setIsDirty(true); }}
           multiline
@@ -226,130 +169,156 @@ const NoteEditorScreen: React.FC = () => {
           scrollEnabled={false}
         />
 
-        {/* Tags */}
-        {tags.length > 0 && (
-          <View style={styles.tagsWrap}>
-            {tags.map(tag => (
-              <TouchableOpacity
-                key={tag}
-                style={[styles.tagPill, { backgroundColor: '#8B5CF625', borderColor: '#8B5CF640' }]}
-                onPress={() => removeTag(tag)}
-              >
-                <Text style={[styles.tagPillText, { color: isDark ? '#C4B5FD' : '#7C3AED' }]}>#{tag}</Text>
-                <Icon name="close" size={11} color="#8B5CF6" />
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* Tag input */}
-        {showTagInput && (
-          <View style={[styles.tagInputRow, { borderColor: '#8B5CF650', backgroundColor: `${textColor}08` }]}>
-            <Icon name="pricetag-outline" size={15} color="#8B5CF6" />
-            <TextInput
-              style={[styles.tagInputField, { color: textColor }]}
-              placeholder="Add tag…"
-              placeholderTextColor={`${textColor}40`}
-              value={tagInput}
-              onChangeText={setTagInput}
-              onSubmitEditing={addTag}
-              returnKeyType="done"
-              autoFocus
-              autoCapitalize="none"
-            />
-            <TouchableOpacity onPress={addTag}>
-              <Icon name="add-circle" size={20} color="#8B5CF6" />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Color Picker */}
-        {showColors && (
-          <View style={styles.colorGrid}>
-            {COLORS.map(c => (
-              <TouchableOpacity
-                key={c.hex}
-                style={[styles.colorSwatch, {
-                  backgroundColor: isDark ? colors.border : c.hex,
-                  borderColor: color === c.hex ? '#8B5CF6' : `${textColor}25`,
-                  borderWidth: color === c.hex ? 2.5 : 1,
-                }]}
-                onPress={() => { setColor(c.hex); setIsDirty(true); }}
-              >
-                {color === c.hex && <Icon name="checkmark" size={14} color="#8B5CF6" />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
         <View style={{ height: 120 }} />
       </ScrollView>
 
       {/* Bottom Toolbar */}
-      <View style={[styles.toolbar, {
-        backgroundColor: bgColor,
-        borderTopColor: `${textColor}15`,
-        paddingBottom: insets.bottom + 8,
-      }]}>
-        <TouchableOpacity style={styles.toolBtn} onPress={toggleColors}>
-          <View style={[styles.colorPreview, { backgroundColor: color, borderColor: `${textColor}30` }]} />
+      <View style={[s.toolbar, { backgroundColor: bgColor, borderTopColor: `${textPri}10`, paddingBottom: insets.bottom + 8 }]}>
+        <TouchableOpacity style={s.toolBtn} onPress={() => setShowColorSheet(true)}>
+          <View style={[s.colorPreview, { backgroundColor: color, borderColor: `${textPri}25` }]} />
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.toolBtn, showTagInput && { backgroundColor: '#8B5CF620', borderRadius: 10 }]}
-          onPress={() => setShowTagInput(v => !v)}
+          style={[s.toolBtn, showTagSheet && { backgroundColor: `${primary}15`, borderRadius: 8 }]}
+          onPress={() => setShowTagSheet(true)}
         >
-          <Icon name="pricetag-outline" size={20} color={showTagInput ? '#8B5CF6' : subColor} />
+          <Icon name="pricetag-outline" size={18} color={showTagSheet ? primary : textSec} />
         </TouchableOpacity>
 
-        <View style={styles.toolSpacer} />
+        <View style={s.toolSpacer} />
 
-        <Text style={[styles.charCount, { color: subColor }]}>
-          {content.length} chars
-        </Text>
+        <Text style={[s.charCount, { color: textSec }]}>{content.length} chars</Text>
 
-        {isEdit && (
-          <Text style={[styles.lastSaved, { color: subColor }]}>
-            {existingNote ? `Edited ${new Date(existingNote.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
+        {isEdit && existingNote && (
+          <Text style={[s.lastSaved, { color: textSec }]}>
+            Edited {new Date(existingNote.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
           </Text>
         )}
       </View>
+
+      {/* Color Picker Bottom Sheet */}
+      <Modal visible={showColorSheet} transparent animationType="slide" onRequestClose={() => setShowColorSheet(false)}>
+        <TouchableOpacity style={s.sheetOverlay} activeOpacity={1} onPress={() => setShowColorSheet(false)}>
+          <View style={[s.sheetContent, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
+            <View style={[s.sheetHandle, { backgroundColor: isDark ? '#475569' : '#CBD5E1' }]} />
+            <Text style={[s.sheetTitle, { color: textPri }]}>Note Color</Text>
+            <View style={s.colorGrid}>
+              {COLORS.map(c => (
+                <TouchableOpacity
+                  key={c.hex}
+                  style={[s.colorItem, {
+                    backgroundColor: isDark ? (c.hex === '#FFFFFF' ? '#334155' : `${c.hex}40`) : c.hex,
+                    borderColor: color === c.hex ? primary : (isDark ? '#475569' : '#E2E8F0'),
+                    borderWidth: color === c.hex ? 2.5 : 1,
+                  }]}
+                  onPress={() => { setColor(c.hex); setIsDirty(true); setShowColorSheet(false); }}
+                >
+                  {color === c.hex && <Icon name="checkmark" size={16} color={primary} />}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Tag Bottom Sheet */}
+      <Modal visible={showTagSheet} transparent animationType="slide" onRequestClose={() => setShowTagSheet(false)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <TouchableOpacity style={s.sheetOverlay} activeOpacity={1} onPress={() => setShowTagSheet(false)}>
+            <View style={[s.sheetContent, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]} onStartShouldSetResponder={() => true}>
+              <View style={[s.sheetHandle, { backgroundColor: isDark ? '#475569' : '#CBD5E1' }]} />
+              <Text style={[s.sheetTitle, { color: textPri }]}>Tags</Text>
+
+              {/* Tag Input */}
+              <View style={[s.tagInputRow, { borderColor: `${primary}40`, backgroundColor: `${textPri}06` }]}>
+                <Icon name="pricetag-outline" size={14} color={primary} />
+                <TextInput
+                  style={[s.tagInputField, { color: textPri }]}
+                  placeholder="Type tag and press add…"
+                  placeholderTextColor={`${textPri}35`}
+                  value={tagInput}
+                  onChangeText={setTagInput}
+                  onSubmitEditing={addTag}
+                  returnKeyType="done"
+                  autoFocus
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity onPress={addTag}>
+                  <Icon name="add-circle" size={20} color={primary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Existing Tags */}
+              {tags.length > 0 ? (
+                <View style={s.tagsWrap}>
+                  {tags.map(tag => (
+                    <TouchableOpacity
+                      key={tag}
+                      style={[s.tagPill, { backgroundColor: `${primary}12`, borderColor: `${primary}30` }]}
+                      onPress={() => removeTag(tag)}
+                    >
+                      <Text style={[s.tagPillText, { color: primary }]}>#{tag}</Text>
+                      <Icon name="close" size={10} color={primary} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <Text style={[s.tagEmpty, { color: textSec }]}>No tags yet — type above to add</Text>
+              )}
+
+              {/* Done button */}
+              <TouchableOpacity
+                style={[s.tagDoneBtn, { backgroundColor: primary }]}
+                onPress={() => { setShowTagSheet(false); setTagInput(''); }}
+              >
+                <Text style={s.tagDoneBtnText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: { flex: 1 },
 
-  header:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1 },
-  headerBtn:       { padding: 4 },
-  headerActions:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerActionBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  saveBtn:         { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-  saveBtnText:     { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingBottom: 10, borderBottomWidth: 1 },
+  headerBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  actionBtn: { width: 34, height: 34, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  saveBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
+  saveBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
 
-  body:        { flex: 1, paddingHorizontal: 20 },
-  titleInput:  { fontSize: 22, fontWeight: '700', paddingTop: 18, paddingBottom: 8, lineHeight: 30 },
-  contentInput: { fontSize: 16, lineHeight: 26, paddingBottom: 16, minHeight: 200 },
+  body: { flex: 1, paddingHorizontal: 18 },
+  titleInput: { fontSize: 20, fontWeight: '700', paddingTop: 16, paddingBottom: 6, lineHeight: 28 },
+  contentInput: { fontSize: 14, lineHeight: 23, paddingBottom: 14, minHeight: 200 },
 
-  tagsWrap:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 12 },
-  tagPill:     { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1 },
-  tagPillText: { fontSize: 12, fontWeight: '600' },
+  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingBottom: 10 },
+  tagPill: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
+  tagPillText: { fontSize: 11, fontWeight: '600' },
 
-  tagInputRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12 },
-  tagInputField: { flex: 1, fontSize: 14 },
+  tagInputRow: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 10 },
+  tagInputField: { flex: 1, fontSize: 13 },
 
-  colorGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 16 },
-  colorSwatch: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  toolbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, borderTopWidth: 1, gap: 4 },
+  toolBtn: { padding: 6 },
+  toolSpacer: { flex: 1 },
+  colorPreview: { width: 20, height: 20, borderRadius: 10, borderWidth: 1 },
+  charCount: { fontSize: 10 },
+  lastSaved: { fontSize: 10, marginLeft: 8 },
 
-  toolbar:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, borderTopWidth: 1, gap: 4 },
-  toolBtn:      { padding: 8 },
-  toolSpacer:   { flex: 1 },
-  colorPreview: { width: 22, height: 22, borderRadius: 11, borderWidth: 1 },
-  charCount:    { fontSize: 11 },
-  lastSaved:    { fontSize: 11, marginLeft: 10 },
+  sheetOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000040' },
+  sheetContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingBottom: 32, paddingTop: 8 },
+  sheetHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
+  sheetTitle: { fontSize: 14, fontWeight: '700', marginBottom: 14 },
+  colorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  colorItem: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+
+  tagEmpty: { fontSize: 12, textAlign: 'center', paddingVertical: 12 },
+  tagDoneBtn: { height: 42, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 14 },
+  tagDoneBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
 });
 
 export default NoteEditorScreen;

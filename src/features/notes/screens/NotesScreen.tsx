@@ -5,7 +5,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, Alert, TextInput, ScrollView,
+  RefreshControl, TextInput, ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -14,75 +14,89 @@ import {
   useNotes, useTogglePin, useToggleArchive, useDeleteNote,
 } from '../../../hooks/api/useNotes';
 import { AppHeader } from '../../../components/common';
+import { useConfirm } from '../../../components/common/ConfirmModal';
 import type { Note } from '../../../api/endpoints/notes';
 
 // ─── Note Card ────────────────────────────────────────────────────────────────
 
 const NoteCard = ({
-  note, onPress, onPin, onArchive, onDelete, colors,
+  note, onPress, onPin, onArchive, onDelete, isDark, primary,
 }: {
   note: Note; onPress: () => void; onPin: () => void;
-  onArchive: () => void; onDelete: () => void; colors: any;
+  onArchive: () => void; onDelete: () => void; isDark: boolean; primary: string;
 }) => {
-  const isDark   = colors.background === '#0F172A';
-  const bgColor  = isDark ? colors.surface : (note.color !== '#FFFFFF' ? note.color : colors.surface);
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const textTer = isDark ? '#475569' : '#CBD5E1';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
+  const borderC = isDark ? '#334155' : '#F1F5F9';
+  const bgColor = isDark ? surfaceC : (note.color !== '#FFFFFF' ? note.color : surfaceC);
+  const { actionSheet } = useConfirm();
+
+  const handleLongPress = async () => {
+    const result = await actionSheet({
+      title: note.title || 'Note',
+      message: 'Choose an action',
+      actions: [
+        { key: 'pin', label: note.isPinned ? 'Unpin' : 'Pin', icon: note.isPinned ? 'pin' : 'pin-outline' },
+        { key: 'archive', label: note.isArchived ? 'Unarchive' : 'Archive', icon: note.isArchived ? 'archive' : 'archive-outline' },
+        { key: 'delete', label: 'Delete', icon: 'trash-outline', variant: 'danger' as const },
+      ],
+    });
+    if (result === 'pin') onPin();
+    else if (result === 'archive') onArchive();
+    else if (result === 'delete') onDelete();
+  };
 
   return (
     <TouchableOpacity
-      style={[styles.card, {
+      style={[st.card, {
         backgroundColor: bgColor,
-        borderColor: note.isPinned ? '#8B5CF6' : colors.border,
+        borderColor: note.isPinned ? primary : borderC,
         borderWidth: note.isPinned ? 1.5 : 1,
       }]}
       onPress={onPress}
-      onLongPress={() => Alert.alert(note.title || 'Note', 'What would you like to do?', [
-        { text: note.isPinned ? 'Unpin' : 'Pin', onPress: onPin },
-        { text: note.isArchived ? 'Unarchive' : 'Archive', onPress: onArchive },
-        { text: 'Delete', style: 'destructive', onPress: onDelete },
-        { text: 'Cancel', style: 'cancel' },
-      ])}
+      onLongPress={handleLongPress}
       activeOpacity={0.78}
     >
       {note.isPinned && (
-        <View style={styles.pinDot}>
-          <Icon name="pin" size={11} color="#8B5CF6" />
+        <View style={st.pinDot}>
+          <Icon name="pin" size={10} color={primary} />
         </View>
       )}
 
       {note.title ? (
-        <Text style={[styles.cardTitle, { color: isDark ? colors.text.primary : '#1E293B' }]}
-          numberOfLines={2}>
+        <Text style={[st.cardTitle, { color: isDark ? textPri : '#1E293B' }]} numberOfLines={2}>
           {note.title}
         </Text>
       ) : null}
 
-      <Text style={[styles.cardBody, { color: isDark ? colors.text.secondary : '#475569' }]}
-        numberOfLines={7}>
+      <Text style={[st.cardBody, { color: isDark ? textSec : '#475569' }]} numberOfLines={7}>
         {note.content}
       </Text>
 
       {note.tags.length > 0 && (
-        <View style={styles.tagRow}>
+        <View style={st.tagRow}>
           {note.tags.slice(0, 3).map(t => (
-            <View key={t} style={styles.tag}>
-              <Text style={styles.tagText}>#{t}</Text>
+            <View key={t} style={[st.tag, { backgroundColor: `${primary}12` }]}>
+              <Text style={[st.tagText, { color: primary }]}>#{t}</Text>
             </View>
           ))}
           {note.tags.length > 3 && (
-            <Text style={[styles.tagMore, { color: colors.text.tertiary }]}>+{note.tags.length - 3}</Text>
+            <Text style={[st.tagMore, { color: textTer }]}>+{note.tags.length - 3}</Text>
           )}
         </View>
       )}
 
-      <View style={styles.cardFoot}>
-        <Text style={[styles.cardDate, { color: isDark ? colors.text.tertiary : '#94A3B8' }]}>
+      <View style={st.cardFoot}>
+        <Text style={[st.cardDate, { color: isDark ? textTer : '#94A3B8' }]}>
           {new Date(note.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
         </Text>
         <TouchableOpacity onPress={onPin} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Icon
             name={note.isPinned ? 'pin' : 'pin-outline'}
-            size={13}
-            color={note.isPinned ? '#8B5CF6' : (isDark ? colors.text.tertiary : '#CBD5E1')}
+            size={12}
+            color={note.isPinned ? primary : textTer}
           />
         </TouchableOpacity>
       </View>
@@ -96,35 +110,39 @@ type Tab = 'all' | 'pinned' | 'archived';
 
 const NotesScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const { confirm } = useConfirm();
+  const primary = colors.primary;
 
-  const [tab, setTab]                     = useState<Tab>('all');
-  const [search, setSearch]               = useState('');
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
+  const borderC = isDark ? '#334155' : '#F1F5F9';
+
+  const [tab, setTab] = useState<Tab>('all');
+  const [search, setSearch] = useState('');
   const [searchVisible, setSearchVisible] = useState(false);
-  const [activeTag, setActiveTag]         = useState<string | null>(null);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
 
   const filters = useMemo(() => ({
-    isArchived: tab === 'archived' ? true : tab === 'pinned' ? undefined : undefined,
-    isPinned:   tab === 'pinned'   ? true : undefined,
-    search:     search || undefined,
-    tags:       activeTag || undefined,
+    isArchived: tab === 'archived' ? true : undefined,
+    isPinned: tab === 'pinned' ? true : undefined,
+    search: search || undefined,
+    tags: activeTag || undefined,
   }), [tab, search, activeTag]);
 
   const { data, isLoading, refetch, isRefetching } = useNotes(filters);
-  const pinMutation     = useTogglePin();
+  const pinMutation = useTogglePin();
   const archiveMutation = useToggleArchive();
-  const deleteMutation  = useDeleteNote();
+  const deleteMutation = useDeleteNote();
 
   const notes: Note[] = (data as any)?.data?.data ?? [];
 
-  // Collect tags from all loaded notes
   const allTags = useMemo(() => {
     const set = new Set<string>();
     notes.forEach(n => n.tags.forEach(t => set.add(t)));
     return Array.from(set);
   }, [notes]);
 
-  // Filter archived locally when tab=all (exclude archived)
   const visibleNotes = useMemo(() => {
     let list = notes;
     if (tab === 'all') list = list.filter(n => !n.isArchived);
@@ -137,67 +155,63 @@ const NotesScreen: React.FC = () => {
 
   const pinnedCount = useMemo(() => notes.filter(n => n.isPinned && !n.isArchived).length, [notes]);
 
+  const handleDelete = async (note: Note) => {
+    const ok = await confirm({ title: 'Delete Note', message: `Delete "${note.title || 'this note'}"?`, confirmText: 'Delete', variant: 'danger' });
+    if (ok) deleteMutation.mutate(note._id);
+  };
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[st.container, { backgroundColor: colors.background }]}>
       <AppHeader
         title="Notes"
         right={
-          <View style={styles.headerRight}>
-            <TouchableOpacity
-              style={[styles.headerBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() => { setSearchVisible(v => !v); if (searchVisible) setSearch(''); }}
-            >
-              <Icon name={searchVisible ? 'close' : 'search-outline'} size={18} color={colors.text.secondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.headerBtn, { backgroundColor: '#8B5CF6' }]}
-              onPress={() => (navigation as any).navigate('NoteEditor', { mode: 'create' })}
-            >
-              <Icon name="add" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[st.searchBtn, { backgroundColor: `${primary}12` }]}
+            onPress={() => { setSearchVisible(v => !v); if (searchVisible) setSearch(''); }}
+          >
+            <Icon name={searchVisible ? 'close' : 'search-outline'} size={18} color={primary} />
+          </TouchableOpacity>
         }
       />
 
       {/* Search Bar */}
       {searchVisible && (
-        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <Icon name="search-outline" size={17} color={colors.text.tertiary} />
+        <View style={[st.searchBar, { backgroundColor: surfaceC, borderBottomColor: borderC }]}>
+          <Icon name="search-outline" size={15} color={textSec} />
           <TextInput
-            style={[styles.searchInput, { color: colors.text.primary }]}
+            style={[st.searchInput, { color: isDark ? '#F1F5F9' : '#1E293B' }]}
             placeholder="Search notes..."
-            placeholderTextColor={colors.text.tertiary}
+            placeholderTextColor={isDark ? '#475569' : '#CBD5E1'}
             value={search}
             onChangeText={setSearch}
             autoFocus
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch('')}>
-              <Icon name="close-circle" size={17} color={colors.text.tertiary} />
+              <Icon name="close-circle" size={15} color={textSec} />
             </TouchableOpacity>
           )}
         </View>
       )}
 
       {/* Tabs */}
-      <View style={[styles.tabBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+      <View style={[st.tabBar, { backgroundColor: surfaceC, borderBottomColor: borderC }]}>
         {([
-          { key: 'all',      label: 'All',      icon: 'document-text-outline' },
-          { key: 'pinned',   label: 'Pinned',   icon: 'pin-outline',     badge: pinnedCount },
+          { key: 'all', label: 'All', icon: 'document-text-outline' },
+          { key: 'pinned', label: 'Pinned', icon: 'pin-outline', badge: pinnedCount },
           { key: 'archived', label: 'Archived', icon: 'archive-outline' },
         ] as const).map(t => (
           <TouchableOpacity
             key={t.key}
-            style={[styles.tab, tab === t.key && { borderBottomColor: '#8B5CF6', borderBottomWidth: 2 }]}
+            style={[st.tab, tab === t.key && { borderBottomColor: primary, borderBottomWidth: 2 }]}
             onPress={() => { setTab(t.key); setActiveTag(null); }}
           >
-            <Icon name={t.icon} size={14} color={tab === t.key ? '#8B5CF6' : colors.text.tertiary} />
-            <Text style={[styles.tabText, { color: tab === t.key ? '#8B5CF6' : colors.text.secondary },
-              tab === t.key && { fontWeight: '700' }]}>
+            <Icon name={t.icon} size={13} color={tab === t.key ? primary : textSec} />
+            <Text style={[st.tabText, { color: tab === t.key ? primary : textSec }, tab === t.key && { fontWeight: '700' }]}>
               {t.label}
             </Text>
-            {'badge' in t && t.badge > 0 && (
-              <View style={styles.badge}><Text style={styles.badgeText}>{t.badge}</Text></View>
+            {'badge' in t && (t.badge ?? 0) > 0 && (
+              <View style={[st.badge, { backgroundColor: primary }]}><Text style={st.badgeText}>{t.badge}</Text></View>
             )}
           </TouchableOpacity>
         ))}
@@ -206,22 +220,20 @@ const NotesScreen: React.FC = () => {
       {/* Tag Filter Chips */}
       {allTags.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          style={{ flexGrow: 0 }} contentContainerStyle={styles.tagFilterRow}>
+          style={{ flexGrow: 0 }} contentContainerStyle={st.tagFilterRow}>
           <TouchableOpacity
-            style={[styles.tagChip, { backgroundColor: !activeTag ? '#8B5CF6' : colors.surface, borderColor: !activeTag ? '#8B5CF6' : colors.border }]}
+            style={[st.tagChip, { backgroundColor: !activeTag ? primary : surfaceC, borderColor: !activeTag ? primary : borderC }]}
             onPress={() => setActiveTag(null)}
           >
-            <Text style={[styles.tagChipText, { color: !activeTag ? '#FFFFFF' : colors.text.secondary }]}>All</Text>
+            <Text style={[st.tagChipText, { color: !activeTag ? '#FFFFFF' : textSec }]}>All</Text>
           </TouchableOpacity>
           {allTags.map(tag => (
             <TouchableOpacity
               key={tag}
-              style={[styles.tagChip, { backgroundColor: activeTag === tag ? '#8B5CF6' : colors.surface, borderColor: activeTag === tag ? '#8B5CF6' : colors.border }]}
+              style={[st.tagChip, { backgroundColor: activeTag === tag ? primary : surfaceC, borderColor: activeTag === tag ? primary : borderC }]}
               onPress={() => setActiveTag(activeTag === tag ? null : tag)}
             >
-              <Text style={[styles.tagChipText, { color: activeTag === tag ? '#FFFFFF' : colors.text.secondary }]}>
-                #{tag}
-              </Text>
+              <Text style={[st.tagChipText, { color: activeTag === tag ? '#FFFFFF' : textSec }]}>#{tag}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -229,97 +241,94 @@ const NotesScreen: React.FC = () => {
 
       {/* Notes Grid */}
       {visibleNotes.length === 0 && !isLoading ? (
-        <View style={styles.emptyWrap}>
-          <View style={[styles.emptyBg, { backgroundColor: '#8B5CF612' }]}>
-            <Icon name="document-text-outline" size={52} color="#8B5CF6" />
+        <View style={st.emptyWrap}>
+          <View style={[st.emptyBg, { backgroundColor: `${primary}10` }]}>
+            <Icon name="document-text-outline" size={40} color={primary} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
+          <Text style={[st.emptyTitle, { color: isDark ? '#F1F5F9' : '#1E293B' }]}>
             {search ? 'No matching notes' : tab === 'pinned' ? 'No pinned notes' : tab === 'archived' ? 'No archived notes' : 'No notes yet'}
           </Text>
-          <Text style={[styles.emptyHint, { color: colors.text.secondary }]}>
+          <Text style={[st.emptyHint, { color: textSec }]}>
             {tab === 'all' && !search ? 'Tap + to write your first note' : 'Try a different filter'}
           </Text>
-          {tab === 'all' && !search && (
-            <TouchableOpacity
-              style={[styles.emptyBtn, { backgroundColor: '#8B5CF6' }]}
-              onPress={() => (navigation as any).navigate('NoteEditor', { mode: 'create' })}
-            >
-              <Icon name="add" size={18} color="#FFFFFF" />
-              <Text style={styles.emptyBtnText}>New Note</Text>
-            </TouchableOpacity>
-          )}
         </View>
       ) : (
         <FlatList
           data={visibleNotes}
           keyExtractor={item => item._id}
           numColumns={2}
-          columnWrapperStyle={styles.row}
+          columnWrapperStyle={st.row}
           renderItem={({ item }) => (
             <NoteCard
               note={item}
               onPress={() => (navigation as any).navigate('NoteEditor', { mode: 'edit', noteId: item._id })}
               onPin={() => pinMutation.mutate(item._id)}
               onArchive={() => archiveMutation.mutate(item._id)}
-              onDelete={() => Alert.alert('Delete Note', `Delete "${item.title || 'this note'}"?`, [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate(item._id) },
-              ])}
-              colors={colors}
+              onDelete={() => handleDelete(item)}
+              isDark={isDark}
+              primary={primary}
             />
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={st.listContent}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch}
-              colors={['#8B5CF6']} tintColor={'#8B5CF6'} />
+              colors={[primary]} tintColor={primary} />
           }
         />
       )}
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={[st.fab, { backgroundColor: primary }]}
+        onPress={() => (navigation as any).navigate('NoteEditor', { mode: 'create' })}
+        activeOpacity={0.8}
+      >
+        <Icon name="add" size={22} color="#FFFFFF" />
+      </TouchableOpacity>
     </View>
   );
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const st = StyleSheet.create({
   container: { flex: 1 },
 
-  headerRight: { flexDirection: 'row', gap: 8 },
-  headerBtn:   { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  searchBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
 
-  searchBar:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
-  searchInput: { flex: 1, fontSize: 15 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1 },
+  searchInput: { flex: 1, fontSize: 13 },
 
-  tabBar:      { flexDirection: 'row', borderBottomWidth: 1, paddingHorizontal: 8 },
-  tab:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 11, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabText:     { fontSize: 13, fontWeight: '600' },
-  badge:       { backgroundColor: '#8B5CF6', borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1 },
-  badgeText:   { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
+  tabBar: { flexDirection: 'row', borderBottomWidth: 1, paddingHorizontal: 8 },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabText: { fontSize: 12, fontWeight: '600' },
+  badge: { borderRadius: 6, paddingHorizontal: 4, paddingVertical: 1 },
+  badgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '700' },
 
-  tagFilterRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
-  tagChip:      { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 16, borderWidth: 1 },
-  tagChipText:  { fontSize: 12, fontWeight: '600' },
+  tagFilterRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
+  tagChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14, borderWidth: 1 },
+  tagChipText: { fontSize: 11, fontWeight: '600' },
 
-  listContent:  { padding: 10, paddingBottom: 40 },
-  row:          { gap: 10, marginBottom: 10 },
+  listContent: { padding: 10, paddingBottom: 90 },
+  row: { gap: 8, marginBottom: 8 },
 
-  card:      { flex: 1, borderRadius: 16, padding: 13, minHeight: 110 },
-  pinDot:    { position: 'absolute', top: 10, right: 10 },
-  cardTitle: { fontSize: 14, fontWeight: '700', marginBottom: 5, paddingRight: 16, lineHeight: 19 },
-  cardBody:  { fontSize: 12, lineHeight: 18, marginBottom: 8 },
-  tagRow:    { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 6 },
-  tag:       { backgroundColor: '#8B5CF620', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  tagText:   { fontSize: 10, color: '#8B5CF6', fontWeight: '600' },
-  tagMore:   { fontSize: 10 },
-  cardFoot:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
-  cardDate:  { fontSize: 10 },
+  card: { flex: 1, borderRadius: 12, padding: 11, minHeight: 100 },
+  pinDot: { position: 'absolute', top: 8, right: 8 },
+  cardTitle: { fontSize: 13, fontWeight: '700', marginBottom: 4, paddingRight: 14, lineHeight: 18 },
+  cardBody: { fontSize: 11, lineHeight: 16, marginBottom: 6 },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 3, marginBottom: 5 },
+  tag: { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5 },
+  tagText: { fontSize: 9, fontWeight: '600' },
+  tagMore: { fontSize: 9 },
+  cardFoot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
+  cardDate: { fontSize: 9 },
 
-  emptyWrap:  { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, paddingHorizontal: 40 },
-  emptyBg:    { width: 96, height: 96, borderRadius: 48, justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
-  emptyTitle: { fontSize: 18, fontWeight: '700' },
-  emptyHint:  { fontSize: 14, textAlign: 'center' },
-  emptyBtn:   { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24, marginTop: 8 },
-  emptyBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
+  emptyWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, paddingHorizontal: 40 },
+  emptyBg: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
+  emptyTitle: { fontSize: 15, fontWeight: '700' },
+  emptyHint: { fontSize: 12, textAlign: 'center' },
+
+  fab: { position: 'absolute', bottom: 90, right: 20, width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
 });
 
 export default NotesScreen;

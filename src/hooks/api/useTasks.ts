@@ -138,16 +138,59 @@ export const useUpdateTaskStatus = () => {
       id: string;
       status: 'todo' | 'in_progress' | 'completed' | 'cancelled';
     }) => tasksApi.updateStatus(id, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: tasksKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: tasksKeys.stats() });
+    onMutate: async ({ id, status }) => {
+      // Cancel both list and detail queries
+      await queryClient.cancelQueries({ queryKey: tasksKeys.lists() });
+      await queryClient.cancelQueries({ queryKey: tasksKeys.detail(id) });
+
+      const prevLists = queryClient.getQueriesData({ queryKey: tasksKeys.lists() });
+      const prevDetail = queryClient.getQueryData(tasksKeys.detail(id));
+
+      // Optimistic update lists
+      queryClient.setQueriesData({ queryKey: tasksKeys.lists() }, (old: any) => {
+        if (!old?.data?.data) return old;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            data: old.data.data.map((t: any) =>
+              t._id === id ? { ...t, status, completedAt: status === 'completed' ? new Date().toISOString() : null } : t
+            ),
+          },
+        };
+      });
+
+      // Optimistic update detail (cache = axios response = { data: { success, data: task } })
+      queryClient.setQueryData(tasksKeys.detail(id), (old: any) => {
+        if (!old?.data?.data) return old;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            data: { ...old.data.data, status, completedAt: status === 'completed' ? new Date().toISOString() : null },
+          },
+        };
+      });
+
+      return { prevLists, prevDetail, id };
     },
-    onError: (error: any) => {
+    onError: (_err: any, _vars, context: any) => {
+      if (context?.prevLists) {
+        context.prevLists.forEach(([key, data]: any) => queryClient.setQueryData(key, data));
+      }
+      if (context?.prevDetail) {
+        queryClient.setQueryData(tasksKeys.detail(context.id), context.prevDetail);
+      }
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: error.response?.data?.error || 'Failed to update status',
+        text2: _err.response?.data?.error || 'Failed to update status',
       });
+    },
+    onSettled: (_d, _e, { id }) => {
+      queryClient.invalidateQueries({ queryKey: tasksKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: tasksKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: tasksKeys.detail(id) });
     },
   });
 };
@@ -177,7 +220,7 @@ export const useAddSubtask = () => {
   });
 };
 
-// Update subtask
+// Update subtask (optimistic for toggle)
 export const useUpdateSubtask = () => {
   const queryClient = useQueryClient();
 
@@ -191,15 +234,43 @@ export const useUpdateSubtask = () => {
       subtaskId: string;
       data: { title?: string; completed?: boolean };
     }) => tasksApi.updateSubtask(taskId, subtaskId, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: tasksKeys.detail(variables.taskId) });
+    onMutate: async ({ taskId, subtaskId, data }) => {
+      const detailKey = tasksKeys.detail(taskId);
+      await queryClient.cancelQueries({ queryKey: detailKey });
+      const prev = queryClient.getQueryData(detailKey);
+      // Cache = axios response = { data: { success, data: task } }
+      queryClient.setQueryData(detailKey, (old: any) => {
+        const task = old?.data?.data;
+        if (!task?.subtasks) return old;
+        const subtasks = task.subtasks.map((s: any) =>
+          s._id === subtaskId ? { ...s, ...data } : s
+        );
+        const done = subtasks.filter((s: any) => s.completed).length;
+        const total = subtasks.length;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            data: {
+              ...task,
+              subtasks,
+              subtaskProgress: total > 0 ? Math.round((done / total) * 100) : 0,
+            },
+          },
+        };
+      });
+      return { prev, detailKey };
     },
-    onError: (error: any) => {
+    onError: (_err: any, _vars, context: any) => {
+      if (context?.prev) queryClient.setQueryData(context.detailKey, context.prev);
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: error.response?.data?.error || 'Failed to update subtask',
+        text2: _err.response?.data?.error || 'Failed to update subtask',
       });
+    },
+    onSettled: (_, __, { taskId }) => {
+      queryClient.invalidateQueries({ queryKey: tasksKeys.detail(taskId) });
     },
   });
 };

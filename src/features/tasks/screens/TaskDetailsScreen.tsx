@@ -4,807 +4,384 @@
 
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  TextInput,
-  Modal,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
 import {
-  useTask,
-  useUpdateTaskStatus,
-  useDeleteTask,
-  useAddSubtask,
-  useUpdateSubtask,
-  useDeleteSubtask,
+  useTask, useUpdateTaskStatus, useDeleteTask,
+  useAddSubtask, useUpdateSubtask, useDeleteSubtask,
 } from '../../../hooks/api/useTasks';
-import { Card, Button, Spinner, ErrorState } from '../../../components/common';
+import { Spinner, ErrorState } from '../../../components/common';
+import { useConfirm } from '../../../components/common/ConfirmModal';
 import { formatDate, formatRelativeTime } from '../../../utils/formatters';
+
+const PRIORITY_MAP: Record<string, { color: string; label: string; icon: string }> = {
+  urgent: { color: '#EF4444', label: 'Urgent', icon: 'flame' },
+  high:   { color: '#F97316', label: 'High', icon: 'arrow-up-circle' },
+  medium: { color: '#F59E0B', label: 'Medium', icon: 'remove-circle' },
+  low:    { color: '#64748B', label: 'Low', icon: 'arrow-down-circle' },
+};
+
+const STATUS_MAP: Record<string, { color: string; label: string }> = {
+  todo:        { color: '#64748B', label: 'To Do' },
+  in_progress: { color: '#3B82F6', label: 'In Progress' },
+  completed:   { color: '#22C55E', label: 'Done' },
+  cancelled:   { color: '#94A3B8', label: 'Cancelled' },
+};
 
 const TaskDetailsScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { colors, textStyles, spacing, borderRadius, shadows } = useTheme();
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { confirm } = useConfirm();
+
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
+  const borderC = isDark ? '#334155' : '#F1F5F9';
 
   const { taskId } = (route.params as any) || {};
-
-  const [showAddSubtask, setShowAddSubtask] = useState(false);
-  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [showSubtaskModal, setShowSubtaskModal] = useState(false);
+  const [subtaskTitle, setSubtaskTitle] = useState('');
 
   const { data: taskData, isLoading, error } = useTask(taskId);
-  const updateStatusMutation = useUpdateTaskStatus();
+  const updateStatus = useUpdateTaskStatus();
   const deleteMutation = useDeleteTask();
-  const addSubtaskMutation = useAddSubtask();
-  const updateSubtaskMutation = useUpdateSubtask();
-  const deleteSubtaskMutation = useDeleteSubtask();
+  const addSubtask = useAddSubtask();
+  const updateSubtask = useUpdateSubtask();
+  const deleteSubtask = useDeleteSubtask();
 
   const task = taskData?.data;
 
-  const styles = createStyles(
-    colors,
-    textStyles,
-    spacing,
-    borderRadius,
-    shadows,
-  );
-
-  const getPriorityColor = () => {
-    switch (task?.priority) {
-      case 'urgent':
-        return colors.danger;
-      case 'high':
-        return colors.warning;
-      case 'medium':
-        return colors.info;
-      case 'low':
-        return colors.text.tertiary;
-      default:
-        return colors.text.secondary;
-    }
-  };
-
-  const getStatusColor = () => {
-    switch (task?.status) {
-      case 'completed':
-        return colors.success;
-      case 'in_progress':
-        return colors.primary;
-      case 'cancelled':
-        return colors.text.tertiary;
-      default:
-        return colors.text.secondary;
-    }
-  };
-
-  const handleUpdateStatus = (
-    status: 'todo' | 'in_progress' | 'completed' | 'cancelled',
-  ) => {
-    updateStatusMutation.mutate({ id: taskId, status });
-  };
-
-  const handleDelete = () => {
-    Alert.alert('Delete Task', 'Are you sure you want to delete this task?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          deleteMutation.mutate(taskId);
-          navigation.goBack();
-        },
-      },
-    ]);
+  const handleDelete = async () => {
+    const ok = await confirm({ title: 'Delete Task', message: `Delete "${task?.title}"?`, confirmText: 'Delete', variant: 'danger' });
+    if (ok) { deleteMutation.mutate(taskId); navigation.goBack(); }
   };
 
   const handleAddSubtask = async () => {
-    if (newSubtaskTitle.trim()) {
-      await addSubtaskMutation.mutateAsync({
-        taskId,
-        title: newSubtaskTitle.trim(),
-      });
-      setNewSubtaskTitle('');
-      setShowAddSubtask(false);
+    if (subtaskTitle.trim()) {
+      await addSubtask.mutateAsync({ taskId, title: subtaskTitle.trim() });
+      setSubtaskTitle('');
+      setShowSubtaskModal(false);
     }
   };
 
-  const handleToggleSubtask = (subtaskId: string, completed: boolean) => {
-    updateSubtaskMutation.mutate({
-      taskId,
-      subtaskId,
-      data: { completed: !completed },
-    });
+  const handleDeleteSubtask = async (id: string, title: string) => {
+    const ok = await confirm({ title: 'Delete Subtask', message: `Delete "${title}"?`, confirmText: 'Delete', variant: 'danger' });
+    if (ok) deleteSubtask.mutate({ taskId, subtaskId: id });
   };
 
-  const handleDeleteSubtask = (subtaskId: string, title: string) => {
-    Alert.alert('Delete Subtask', `Delete "${title}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => deleteSubtaskMutation.mutate({ taskId, subtaskId }),
-      },
-    ]);
-  };
+  if (isLoading) return <View style={[st.container, { backgroundColor: colors.background }]}><Spinner text="Loading..." /></View>;
+  if (error || !task) return <View style={[st.container, { backgroundColor: colors.background }]}><ErrorState title="Task not found" message="Unable to load" onRetry={() => navigation.goBack()} /></View>;
 
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <Spinner text="Loading..." />
-      </View>
-    );
-  }
-
-  if (error || !task) {
-    return (
-      <View style={styles.container}>
-        <ErrorState
-          title="Task not found"
-          message="Unable to load task details"
-          onRetry={() => navigation.goBack()}
-        />
-      </View>
-    );
-  }
+  const priority = PRIORITY_MAP[task.priority] ?? PRIORITY_MAP.medium;
+  const status = STATUS_MAP[task.status] ?? STATUS_MAP.todo;
+  const isDone = task.status === 'completed';
+  const subtasksDone = task.subtasks?.filter((s: any) => s.completed).length ?? 0;
+  const subtasksTotal = task.subtasks?.length ?? 0;
 
   return (
-    <View style={styles.container}>
+    <View style={[st.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={28} color={colors.text.primary} />
+      <View style={[st.header, { paddingTop: insets.top + 8, backgroundColor: surfaceC, borderBottomColor: borderC }]}>
+        <TouchableOpacity style={st.headerBtn} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-back" size={22} color={textPri} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Task Details</Text>
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            onPress={() =>
-              (navigation as any).navigate('AddTask', {
-                mode: 'edit',
-                taskId,
-              })
-            }
-            style={styles.headerButton}
-          >
-            <Icon name="create-outline" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleDelete} style={styles.headerButton}>
-            <Icon name="trash-outline" size={24} color={colors.danger} />
-          </TouchableOpacity>
-        </View>
+        <Text style={[st.headerTitle, { color: textPri }]}>Task Details</Text>
+        <TouchableOpacity style={st.headerBtn} onPress={() => (navigation as any).navigate('AddTask', { mode: 'edit', taskId })}>
+          <Icon name="create-outline" size={18} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* Main Card */}
-        <Card style={styles.mainCard}>
-          {/* Title */}
-          <View style={styles.titleSection}>
-            <TouchableOpacity
-              style={[
-                styles.checkbox,
-                task.status === 'completed' && {
-                  backgroundColor: colors.success,
-                  borderColor: colors.success,
-                },
-              ]}
-              onPress={() =>
-                handleUpdateStatus(
-                  task.status === 'completed' ? 'todo' : 'completed',
-                )
-              }
-            >
-              {task.status === 'completed' && (
-                <Icon name="checkmark" size={20} color={colors.text.inverse} />
-              )}
-            </TouchableOpacity>
-            <Text
-              style={[
-                styles.title,
-                task.status === 'completed' && styles.titleCompleted,
-              ]}
-            >
-              {task.title}
-            </Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}>
+        {/* Title + Checkbox */}
+        <View style={[st.titleRow, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          <TouchableOpacity
+            style={[st.checkbox, isDone ? { backgroundColor: '#22C55E', borderColor: '#22C55E' } : { borderColor: borderC }]}
+            onPress={() => updateStatus.mutate({ id: taskId, status: isDone ? 'todo' : 'completed' })}
+          >
+            {isDone && <Icon name="checkmark" size={14} color="#FFF" />}
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={[st.title, { color: textPri }, isDone && st.titleDone]}>{task.title}</Text>
+            {task.description ? <Text style={[st.desc, { color: textSec }]}>{task.description}</Text> : null}
           </View>
-
-          {/* Description */}
-          {task.description && (
-            <View style={styles.descriptionSection}>
-              <Text style={styles.description}>{task.description}</Text>
-            </View>
-          )}
-
-          {/* Meta Info */}
-          <View style={styles.metaSection}>
-            {/* Priority */}
-            <View style={styles.metaRow}>
-              <Icon name="flag" size={20} color={getPriorityColor()} />
-              <Text style={styles.metaLabel}>Priority</Text>
-              <View
-                style={[
-                  styles.metaBadge,
-                  { backgroundColor: `${getPriorityColor()}15` },
-                ]}
-              >
-                <Text
-                  style={[styles.metaBadgeText, { color: getPriorityColor() }]}
-                >
-                  {task.priority.charAt(0).toUpperCase() +
-                    task.priority.slice(1)}
-                </Text>
-              </View>
-            </View>
-
-            {/* Status */}
-            <View style={styles.metaRow}>
-              <Icon name="ellipse" size={20} color={getStatusColor()} />
-              <Text style={styles.metaLabel}>Status</Text>
-              <View
-                style={[
-                  styles.metaBadge,
-                  { backgroundColor: `${getStatusColor()}15` },
-                ]}
-              >
-                <Text
-                  style={[styles.metaBadgeText, { color: getStatusColor() }]}
-                >
-                  {task.status === 'in_progress'
-                    ? 'In Progress'
-                    : task.status.charAt(0).toUpperCase() +
-                      task.status.slice(1)}
-                </Text>
-              </View>
-            </View>
-
-            {/* Due Date */}
-            {task.dueDate && (
-              <View style={styles.metaRow}>
-                <Icon
-                  name="calendar"
-                  size={20}
-                  color={task.isOverdue ? colors.danger : colors.text.secondary}
-                />
-                <Text style={styles.metaLabel}>Due Date</Text>
-                <Text
-                  style={[
-                    styles.metaValue,
-                    task.isOverdue && { color: colors.danger },
-                  ]}
-                >
-                  {formatDate(task.dueDate, 'dd MMM yyyy')}
-                  {task.isOverdue && ' (Overdue)'}
-                </Text>
-              </View>
-            )}
-
-            {/* Created */}
-            <View style={styles.metaRow}>
-              <Icon name="time" size={20} color={colors.text.secondary} />
-              <Text style={styles.metaLabel}>Created</Text>
-              <Text style={styles.metaValue}>
-                {formatRelativeTime(task.createdAt)}
-              </Text>
-            </View>
-
-            {/* Completed */}
-            {task.completedAt && (
-              <View style={styles.metaRow}>
-                <Icon
-                  name="checkmark-circle"
-                  size={20}
-                  color={colors.success}
-                />
-                <Text style={styles.metaLabel}>Completed</Text>
-                <Text style={styles.metaValue}>
-                  {formatRelativeTime(task.completedAt)}
-                </Text>
-              </View>
-            )}
-
-            {/* Reminder */}
-            {task.reminder?.enabled && (
-              <View style={styles.metaRow}>
-                <Icon name="notifications" size={20} color={colors.warning} />
-                <Text style={styles.metaLabel}>Reminder</Text>
-                <Text style={styles.metaValue}>
-                  {formatDate(task.reminder.time, 'dd MMM, HH:mm')}
-                </Text>
-              </View>
-            )}
-
-            {/* Repeat */}
-            {task.repeat?.enabled && (
-              <View style={styles.metaRow}>
-                <Icon name="repeat" size={20} color={colors.info} />
-                <Text style={styles.metaLabel}>Repeat</Text>
-                <Text style={styles.metaValue}>
-                  {task.repeat.interval.charAt(0).toUpperCase() +
-                    task.repeat.interval.slice(1)}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Tags */}
-          {task.tags && task.tags.length > 0 && (
-            <View style={styles.tagsSection}>
-              <Text style={styles.tagsTitle}>Tags</Text>
-              <View style={styles.tags}>
-                {task.tags.map((tag, index) => (
-                  <View key={index} style={styles.tag}>
-                    <Icon name="pricetag" size={12} color={colors.primary} />
-                    <Text style={styles.tagText}>{tag}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-        </Card>
+        </View>
 
         {/* Quick Actions */}
-        <Card style={styles.actionsCard}>
-          <Text style={styles.actionsTitle}>Quick Actions</Text>
-          <View style={styles.actions}>
-            {task.status !== 'in_progress' && (
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  { backgroundColor: `${colors.primary}15` },
-                ]}
-                onPress={() => handleUpdateStatus('in_progress')}
-              >
-                <Icon name="play" size={20} color={colors.primary} />
-                <Text
-                  style={[styles.actionButtonText, { color: colors.primary }]}
-                >
-                  Start
-                </Text>
-              </TouchableOpacity>
-            )}
-            {task.status !== 'completed' && (
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  { backgroundColor: `${colors.success}15` },
-                ]}
-                onPress={() => handleUpdateStatus('completed')}
-              >
-                <Icon name="checkmark" size={20} color={colors.success} />
-                <Text
-                  style={[styles.actionButtonText, { color: colors.success }]}
-                >
-                  Complete
-                </Text>
-              </TouchableOpacity>
-            )}
-            {task.status === 'completed' && (
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  { backgroundColor: `${colors.warning}15` },
-                ]}
-                onPress={() => handleUpdateStatus('todo')}
-              >
-                <Icon name="refresh" size={20} color={colors.warning} />
-                <Text
-                  style={[styles.actionButtonText, { color: colors.warning }]}
-                >
-                  Reopen
-                </Text>
-              </TouchableOpacity>
-            )}
-            {task.status !== 'cancelled' && (
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  { backgroundColor: `${colors.danger}15` },
-                ]}
-                onPress={() => handleUpdateStatus('cancelled')}
-              >
-                <Icon name="close" size={20} color={colors.danger} />
-                <Text
-                  style={[styles.actionButtonText, { color: colors.danger }]}
-                >
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-            )}
+        <View style={st.actionsRow}>
+          {task.status !== 'in_progress' && (
+            <TouchableOpacity style={[st.actionBtn, { backgroundColor: '#3B82F610' }]} onPress={() => updateStatus.mutate({ id: taskId, status: 'in_progress' })}>
+              <Icon name="play" size={14} color="#3B82F6" />
+              <Text style={[st.actionText, { color: '#3B82F6' }]}>Start</Text>
+            </TouchableOpacity>
+          )}
+          {task.status !== 'completed' && (
+            <TouchableOpacity style={[st.actionBtn, { backgroundColor: '#22C55E10' }]} onPress={() => updateStatus.mutate({ id: taskId, status: 'completed' })}>
+              <Icon name="checkmark" size={14} color="#22C55E" />
+              <Text style={[st.actionText, { color: '#22C55E' }]}>Complete</Text>
+            </TouchableOpacity>
+          )}
+          {task.status === 'completed' && (
+            <TouchableOpacity style={[st.actionBtn, { backgroundColor: '#F59E0B10' }]} onPress={() => updateStatus.mutate({ id: taskId, status: 'todo' })}>
+              <Icon name="refresh" size={14} color="#F59E0B" />
+              <Text style={[st.actionText, { color: '#F59E0B' }]}>Reopen</Text>
+            </TouchableOpacity>
+          )}
+          {task.status !== 'cancelled' && (
+            <TouchableOpacity style={[st.actionBtn, { backgroundColor: '#EF444410' }]} onPress={() => updateStatus.mutate({ id: taskId, status: 'cancelled' })}>
+              <Icon name="close" size={14} color="#EF4444" />
+              <Text style={[st.actionText, { color: '#EF4444' }]}>Cancel</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Meta Details */}
+        <View style={[st.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          {/* Priority */}
+          <View style={st.metaRow}>
+            <View style={[st.metaIcon, { backgroundColor: `${priority.color}10` }]}>
+              <Icon name={priority.icon} size={14} color={priority.color} />
+            </View>
+            <Text style={[st.metaLabel, { color: textSec }]}>Priority</Text>
+            <View style={[st.metaBadge, { backgroundColor: `${priority.color}10` }]}>
+              <Text style={[st.metaBadgeText, { color: priority.color }]}>{priority.label}</Text>
+            </View>
           </View>
-        </Card>
+
+          <View style={[st.divider, { backgroundColor: borderC }]} />
+
+          {/* Status */}
+          <View style={st.metaRow}>
+            <View style={[st.metaIcon, { backgroundColor: `${status.color}10` }]}>
+              <View style={[st.statusDot, { backgroundColor: status.color }]} />
+            </View>
+            <Text style={[st.metaLabel, { color: textSec }]}>Status</Text>
+            <View style={[st.metaBadge, { backgroundColor: `${status.color}10` }]}>
+              <Text style={[st.metaBadgeText, { color: status.color }]}>{status.label}</Text>
+            </View>
+          </View>
+
+          {task.dueDate && (
+            <>
+              <View style={[st.divider, { backgroundColor: borderC }]} />
+              <View style={st.metaRow}>
+                <View style={[st.metaIcon, { backgroundColor: task.isOverdue ? '#EF444410' : `${textSec}10` }]}>
+                  <Icon name="calendar-outline" size={14} color={task.isOverdue ? '#EF4444' : textSec} />
+                </View>
+                <Text style={[st.metaLabel, { color: textSec }]}>Due</Text>
+                <Text style={[st.metaVal, { color: task.isOverdue ? '#EF4444' : textPri }]}>
+                  {formatDate(task.dueDate, 'dd MMM yyyy')}{task.isOverdue ? ' (Overdue)' : ''}
+                </Text>
+              </View>
+            </>
+          )}
+
+          <View style={[st.divider, { backgroundColor: borderC }]} />
+          <View style={st.metaRow}>
+            <View style={[st.metaIcon, { backgroundColor: `${textSec}10` }]}>
+              <Icon name="time-outline" size={14} color={textSec} />
+            </View>
+            <Text style={[st.metaLabel, { color: textSec }]}>Created</Text>
+            <Text style={[st.metaVal, { color: textPri }]}>{formatRelativeTime(task.createdAt)}</Text>
+          </View>
+
+          {task.completedAt && (
+            <>
+              <View style={[st.divider, { backgroundColor: borderC }]} />
+              <View style={st.metaRow}>
+                <View style={[st.metaIcon, { backgroundColor: '#22C55E10' }]}>
+                  <Icon name="checkmark-circle" size={14} color="#22C55E" />
+                </View>
+                <Text style={[st.metaLabel, { color: textSec }]}>Completed</Text>
+                <Text style={[st.metaVal, { color: textPri }]}>{formatRelativeTime(task.completedAt)}</Text>
+              </View>
+            </>
+          )}
+
+          {task.reminder?.enabled && (
+            <>
+              <View style={[st.divider, { backgroundColor: borderC }]} />
+              <View style={st.metaRow}>
+                <View style={[st.metaIcon, { backgroundColor: '#F59E0B10' }]}>
+                  <Icon name="notifications-outline" size={14} color="#F59E0B" />
+                </View>
+                <Text style={[st.metaLabel, { color: textSec }]}>Reminder</Text>
+                <Text style={[st.metaVal, { color: textPri }]}>{formatDate(task.reminder.time, 'dd MMM, HH:mm')}</Text>
+              </View>
+            </>
+          )}
+
+          {task.repeat?.enabled && (
+            <>
+              <View style={[st.divider, { backgroundColor: borderC }]} />
+              <View style={st.metaRow}>
+                <View style={[st.metaIcon, { backgroundColor: '#3B82F610' }]}>
+                  <Icon name="repeat-outline" size={14} color="#3B82F6" />
+                </View>
+                <Text style={[st.metaLabel, { color: textSec }]}>Repeat</Text>
+                <Text style={[st.metaVal, { color: textPri }]}>{task.repeat.interval.charAt(0).toUpperCase() + task.repeat.interval.slice(1)}</Text>
+              </View>
+            </>
+          )}
+        </View>
+
+        {/* Tags */}
+        {task.tags && task.tags.length > 0 && (
+          <View style={[st.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+            <Text style={[st.cardTitle, { color: textPri }]}>Tags</Text>
+            <View style={st.tagsRow}>
+              {task.tags.map((tag: string, i: number) => (
+                <View key={i} style={[st.tag, { backgroundColor: `${colors.primary}10` }]}>
+                  <Icon name="pricetag-outline" size={10} color={colors.primary} />
+                  <Text style={[st.tagText, { color: colors.primary }]}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Subtasks */}
-        <Card style={styles.subtasksCard}>
-          <View style={styles.subtasksHeader}>
-            <Text style={styles.subtasksTitle}>
-              Subtasks (
-              {task.subtasks?.filter((s: any) => s.completed).length || 0}/
-              {task.subtasks?.length || 0})
-            </Text>
-            <TouchableOpacity onPress={() => setShowAddSubtask(true)}>
-              <Icon name="add-circle" size={24} color={colors.primary} />
+        <View style={[st.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          <View style={st.subtaskHeader}>
+            <Text style={[st.cardTitle, { color: textPri }]}>Subtasks ({subtasksDone}/{subtasksTotal})</Text>
+            <TouchableOpacity onPress={() => setShowSubtaskModal(true)}>
+              <Icon name="add-circle-outline" size={20} color={colors.primary} />
             </TouchableOpacity>
           </View>
 
-          {/* Progress Bar */}
-          {task.subtasks && task.subtasks.length > 0 && (
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${task.subtaskProgress}%`,
-                      backgroundColor: colors.primary,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.progressText}>{task.subtaskProgress}%</Text>
+          {subtasksTotal > 0 && (
+            <View style={[st.subProgress, { backgroundColor: borderC }]}>
+              <View style={[st.subProgressFill, { width: `${task.subtaskProgress ?? 0}%` as any, backgroundColor: '#22C55E' }]} />
             </View>
           )}
 
-          {/* Subtask List */}
           {task.subtasks && task.subtasks.length > 0 ? (
-            task.subtasks.map((subtask: any) => (
-              <View key={subtask._id} style={styles.subtaskItem}>
-                <TouchableOpacity
-                  style={[
-                    styles.subtaskCheckbox,
-                    subtask.completed && {
-                      backgroundColor: colors.success,
-                      borderColor: colors.success,
-                    },
-                  ]}
-                  onPress={() =>
-                    handleToggleSubtask(subtask._id, subtask.completed)
-                  }
-                >
-                  {subtask.completed && (
-                    <Icon
-                      name="checkmark"
-                      size={14}
-                      color={colors.text.inverse}
-                    />
-                  )}
-                </TouchableOpacity>
-                <Text
-                  style={[
-                    styles.subtaskTitle,
-                    subtask.completed && styles.subtaskTitleCompleted,
-                  ]}
-                >
-                  {subtask.title}
-                </Text>
-                <TouchableOpacity
-                  onPress={() =>
-                    handleDeleteSubtask(subtask._id, subtask.title)
-                  }
-                >
-                  <Icon name="trash-outline" size={18} color={colors.danger} />
-                </TouchableOpacity>
+            task.subtasks.map((sub: any, idx: number) => (
+              <View key={sub._id}>
+                {idx > 0 && <View style={[st.divider, { backgroundColor: borderC }]} />}
+                <View style={st.subtaskRow}>
+                  <TouchableOpacity
+                    style={[st.subCheckbox, sub.completed ? { backgroundColor: '#22C55E', borderColor: '#22C55E' } : { borderColor: borderC }]}
+                    onPress={() => updateSubtask.mutate({ taskId, subtaskId: sub._id, data: { completed: !sub.completed } })}
+                  >
+                    {sub.completed && <Icon name="checkmark" size={10} color="#FFF" />}
+                  </TouchableOpacity>
+                  <Text style={[st.subTitle, { color: textPri }, sub.completed && st.subTitleDone]} numberOfLines={1}>{sub.title}</Text>
+                  <TouchableOpacity onPress={() => handleDeleteSubtask(sub._id, sub.title)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Icon name="trash-outline" size={14} color={textSec} />
+                  </TouchableOpacity>
+                </View>
               </View>
             ))
           ) : (
-            <Text style={styles.emptySubtasks}>No subtasks yet</Text>
+            <Text style={[st.emptyText, { color: textSec }]}>No subtasks yet</Text>
           )}
-        </Card>
+        </View>
 
-        <View style={{ height: 30 }} />
+        {/* Delete Button */}
+        <TouchableOpacity style={st.deleteBtn} onPress={handleDelete} activeOpacity={0.7}>
+          <Icon name="trash-outline" size={16} color="#EF4444" />
+          <Text style={st.deleteBtnText}>Delete Task</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Add Subtask Modal */}
-      <Modal visible={showAddSubtask} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Subtask</Text>
-              <TouchableOpacity onPress={() => setShowAddSubtask(false)}>
-                <Icon name="close" size={24} color={colors.text.primary} />
+      <Modal visible={showSubtaskModal} transparent animationType="slide" onRequestClose={() => setShowSubtaskModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={st.modalOverlay}>
+          <View style={[st.modalSheet, { backgroundColor: surfaceC }]}>
+            <View style={[st.modalHeader, { borderBottomColor: borderC }]}>
+              <Text style={[st.modalTitle, { color: textPri }]}>Add Subtask</Text>
+              <TouchableOpacity onPress={() => setShowSubtaskModal(false)}>
+                <Icon name="close" size={20} color={textSec} />
               </TouchableOpacity>
             </View>
             <TextInput
+              style={[st.modalInput, { backgroundColor: colors.background, borderColor: borderC, color: textPri }]}
               placeholder="Subtask title"
-              value={newSubtaskTitle}
-              onChangeText={setNewSubtaskTitle}
-              style={styles.modalInput}
-              placeholderTextColor={colors.text.tertiary}
+              placeholderTextColor={isDark ? '#475569' : '#CBD5E1'}
+              value={subtaskTitle}
+              onChangeText={setSubtaskTitle}
               autoFocus
             />
-            <View style={styles.modalActions}>
-              <Button
-                variant="outline"
-                onPress={() => setShowAddSubtask(false)}
-                style={{ flex: 1, marginRight: spacing.sm }}
-              >
-                Cancel
-              </Button>
-              <Button
+            <View style={st.modalBtns}>
+              <TouchableOpacity style={[st.modalBtn, st.modalCancelBtn, { borderColor: borderC }]} onPress={() => setShowSubtaskModal(false)}>
+                <Text style={[st.modalCancelText, { color: textSec }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[st.modalBtn, { backgroundColor: colors.primary, opacity: addSubtask.isPending ? 0.6 : 1 }]}
                 onPress={handleAddSubtask}
-                disabled={!newSubtaskTitle.trim()}
-                loading={addSubtaskMutation.isPending}
-                style={{ flex: 1, marginLeft: spacing.sm }}
+                disabled={addSubtask.isPending || !subtaskTitle.trim()}
               >
-                Add
-              </Button>
+                <Text style={st.modalAddText}>{addSubtask.isPending ? 'Adding...' : 'Add'}</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
 };
 
-const createStyles = (
-  colors: any,
-  textStyles: any,
-  spacing: any,
-  borderRadius: any,
-  shadows: any,
-) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    headerTitle: {
-      ...textStyles.h3,
-      color: colors.text.primary,
-      flex: 1,
-      marginLeft: spacing.md,
-    },
-    headerRight: {
-      flexDirection: 'row',
-      gap: spacing.md,
-    },
-    headerButton: {
-      padding: spacing.xs,
-    },
-    content: {
-      flex: 1,
-      padding: spacing.lg,
-    },
-    mainCard: {
-      marginBottom: spacing.lg,
-    },
-    titleSection: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      marginBottom: spacing.lg,
-    },
-    checkbox: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      borderWidth: 2,
-      borderColor: colors.border,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    title: {
-      ...textStyles.h3,
-      color: colors.text.primary,
-      flex: 1,
-    },
-    titleCompleted: {
-      textDecorationLine: 'line-through',
-      color: colors.text.secondary,
-    },
-    descriptionSection: {
-      marginBottom: spacing.lg,
-      paddingTop: spacing.md,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-    description: {
-      ...textStyles.body,
-      color: colors.text.secondary,
-      lineHeight: 24,
-    },
-    metaSection: {
-      paddingTop: spacing.md,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-    metaRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: spacing.md,
-      gap: spacing.md,
-    },
-    metaLabel: {
-      ...textStyles.body,
-      color: colors.text.secondary,
-      flex: 1,
-    },
-    metaValue: {
-      ...textStyles.body,
-      color: colors.text.primary,
-      fontWeight: '600',
-    },
-    metaBadge: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      borderRadius: borderRadius.full,
-    },
-    metaBadgeText: {
-      ...textStyles.caption,
-      fontWeight: '700',
-      textTransform: 'capitalize',
-    },
-    tagsSection: {
-      marginTop: spacing.lg,
-      paddingTop: spacing.lg,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-    tagsTitle: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      marginBottom: spacing.sm,
-    },
-    tags: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
-    tag: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      borderRadius: borderRadius.full,
-      backgroundColor: `${colors.primary}15`,
-    },
-    tagText: {
-      ...textStyles.caption,
-      color: colors.primary,
-      fontWeight: '600',
-    },
-    actionsCard: {
-      marginBottom: spacing.lg,
-    },
-    actionsTitle: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      marginBottom: spacing.md,
-    },
-    actions: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.md,
-    },
-    actionButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.lg,
-      borderRadius: borderRadius.md,
-    },
-    actionButtonText: {
-      ...textStyles.body,
-      fontWeight: '600',
-    },
-    subtasksCard: {
-      marginBottom: spacing.lg,
-    },
-    subtasksHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacing.md,
-    },
-    subtasksTitle: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-    },
-    progressContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      marginBottom: spacing.lg,
-    },
-    progressBar: {
-      flex: 1,
-      height: 8,
-      backgroundColor: colors.border,
-      borderRadius: borderRadius.full,
-      overflow: 'hidden',
-    },
-    progressFill: {
-      height: '100%',
-      borderRadius: borderRadius.full,
-    },
-    progressText: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      fontWeight: '700',
-    },
-    subtaskItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: spacing.md,
-      gap: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    subtaskCheckbox: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      borderWidth: 2,
-      borderColor: colors.border,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    subtaskTitle: {
-      ...textStyles.body,
-      color: colors.text.primary,
-      flex: 1,
-    },
-    subtaskTitleCompleted: {
-      textDecorationLine: 'line-through',
-      color: colors.text.secondary,
-    },
-    emptySubtasks: {
-      ...textStyles.body,
-      color: colors.text.tertiary,
-      textAlign: 'center',
-      paddingVertical: spacing.xl,
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    modalContent: {
-      backgroundColor: colors.background,
-      borderRadius: borderRadius.xl,
-      padding: spacing.lg,
-      width: '90%',
-      maxWidth: 400,
-      ...shadows.lg,
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacing.lg,
-    },
-    modalTitle: {
-      ...textStyles.h4,
-      color: colors.text.primary,
-    },
-    modalInput: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: borderRadius.md,
-      padding: spacing.md,
-      ...textStyles.body,
-      color: colors.text.primary,
-      backgroundColor: colors.surface,
-      marginBottom: spacing.lg,
-    },
-    modalActions: {
-      flexDirection: 'row',
-    },
-  });
+const st = StyleSheet.create({
+  container: { flex: 1 },
+
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 10, borderBottomWidth: 1 },
+  headerBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { flex: 1, fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 12 },
+  checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginTop: 1 },
+  title: { fontSize: 15, fontWeight: '700', lineHeight: 21 },
+  titleDone: { textDecorationLine: 'line-through', opacity: 0.6 },
+  desc: { fontSize: 12, marginTop: 4, lineHeight: 17 },
+
+  card: { borderRadius: 12, borderWidth: 1, padding: 14, marginBottom: 12 },
+  cardTitle: { fontSize: 13, fontWeight: '700', marginBottom: 10 },
+  divider: { height: 1, marginVertical: 8 },
+
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  metaIcon: { width: 28, height: 28, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  metaLabel: { flex: 1, fontSize: 12 },
+  metaVal: { fontSize: 12, fontWeight: '600' },
+  metaBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  metaBadgeText: { fontSize: 10, fontWeight: '700' },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  tag: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  tagText: { fontSize: 10, fontWeight: '600' },
+
+  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+  actionText: { fontSize: 12, fontWeight: '600' },
+
+  subtaskHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  subProgress: { height: 4, borderRadius: 2, overflow: 'hidden', marginBottom: 10 },
+  subProgressFill: { height: '100%', borderRadius: 2 },
+  subtaskRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
+  subCheckbox: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
+  subTitle: { flex: 1, fontSize: 12 },
+  subTitleDone: { textDecorationLine: 'line-through', opacity: 0.5 },
+  emptyText: { fontSize: 12, textAlign: 'center', paddingVertical: 12 },
+
+  deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#EF444430', marginTop: 4 },
+  deleteBtnText: { fontSize: 13, fontWeight: '600', color: '#EF4444' },
+
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000055' },
+  modalSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 32 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12, borderBottomWidth: 1, marginBottom: 12 },
+  modalTitle: { fontSize: 14, fontWeight: '700' },
+  modalInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, marginBottom: 12 },
+  modalBtns: { flexDirection: 'row', gap: 10 },
+  modalBtn: { flex: 1, height: 42, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  modalCancelBtn: { borderWidth: 1 },
+  modalCancelText: { fontSize: 13, fontWeight: '600' },
+  modalAddText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+});
 
 export default TaskDetailsScreen;

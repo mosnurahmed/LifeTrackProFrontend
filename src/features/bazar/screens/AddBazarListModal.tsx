@@ -1,17 +1,26 @@
+/* eslint-disable react-native/no-inline-styles */
 /**
  * Add/Edit Bazar List Modal — Professional Minimal
  */
 
 import React, { useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../../hooks/useTheme';
-import { useCreateList, useUpdateList, useBazarList } from '../../../hooks/api/useBazar';
+import {
+  useCreateList,
+  useUpdateList,
+  useBazarList,
+} from '../../../hooks/api/useBazar';
 import { Button, Input, SafeScreen, Spinner } from '../../../components/common';
 import { bazarListSchema } from '../../../utils/validation/schemas';
 
@@ -31,7 +40,10 @@ const AddBazarListModal: React.FC = () => {
   const borderC = isDark ? '#334155' : '#E2E8F0';
 
   const {
-    control, handleSubmit, setValue, formState: { errors },
+    control,
+    handleSubmit,
+    setValue,
+    formState: { errors },
   } = useForm({
     resolver: yupResolver(bazarListSchema),
     defaultValues: { title: '', description: '', totalBudget: undefined },
@@ -61,7 +73,9 @@ const AddBazarListModal: React.FC = () => {
   if (listLoading) {
     return (
       <SafeScreen>
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View
+          style={[styles.container, { backgroundColor: colors.background }]}
+        >
           <Spinner text="Loading..." />
         </View>
       </SafeScreen>
@@ -122,7 +136,9 @@ const AddBazarListModal: React.FC = () => {
                 placeholder="0"
                 type="number"
                 value={value?.toString()}
-                onChangeText={text => onChange(text ? parseFloat(text) : undefined)}
+                onChangeText={text =>
+                  onChange(text ? parseFloat(text) : undefined)
+                }
                 leftIcon="cash-outline"
               />
             )}
@@ -154,13 +170,20 @@ const AddBazarListModal: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
   },
   headerTitle: { fontSize: 16, fontWeight: '700' },
   content: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },
   footer: {
-    flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1,
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
   },
 });
 

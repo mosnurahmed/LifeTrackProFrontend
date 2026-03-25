@@ -26,7 +26,23 @@ export const useMessages = (userId: string, page: number = 1) => {
 export const useUnreadCount = () => {
   return useQuery({
     queryKey: ['unread-count'],
-    queryFn: chatAPI.getUnreadCount
+    queryFn: chatAPI.getUnreadCount,
+    refetchInterval: 10000,
+  });
+};
+
+export const useOnlineStatus = (userId: string) => {
+  return useQuery({
+    queryKey: ['online-status', userId],
+    queryFn: () => chatAPI.getOnlineStatus(userId),
+    enabled: !!userId,
+    refetchInterval: 15000,
+  });
+};
+
+export const useHeartbeat = () => {
+  return useMutation({
+    mutationFn: () => chatAPI.heartbeat(),
   });
 };
 

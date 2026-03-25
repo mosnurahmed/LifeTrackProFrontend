@@ -18,59 +18,46 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import Icon from 'react-native-vector-icons/Ionicons';
 import DatePicker from 'react-native-date-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
 import {
   useCreateSavingsGoal,
   useUpdateSavingsGoal,
   useSavingsGoal,
 } from '../../../hooks/api/useSavingsGoals';
-import { Button, Input, Spinner } from '../../../components/common';
+import { Spinner } from '../../../components/common';
 import { savingsGoalSchema } from '../../../utils/validation/schemas';
 
 const ICONS = [
-  'wallet',
-  'home',
-  'car',
-  'airplane',
-  'gift',
-  'school',
-  'medical',
-  'restaurant',
-  'basketball',
-  'business',
-  'desktop',
-  'phone-portrait',
-  'camera',
-  'shirt',
-  'watch',
-  'diamond',
-  'bicycle',
-  'boat',
-  'game-controller',
-  'paw',
+  'wallet', 'home', 'car', 'airplane', 'gift', 'school', 'medical',
+  'restaurant', 'basketball', 'business', 'desktop', 'phone-portrait',
+  'camera', 'shirt', 'watch', 'diamond', 'bicycle', 'boat',
+  'game-controller', 'paw',
 ];
 
 const COLORS = [
-  '#2ECC71',
-  '#3498DB',
-  '#9B59B6',
-  '#E74C3C',
-  '#F39C12',
-  '#1ABC9C',
-  '#E67E22',
-  '#34495E',
-  '#16A085',
-  '#27AE60',
-  '#2980B9',
-  '#8E44AD',
-  '#C0392B',
-  '#D35400',
+  '#2ECC71', '#3498DB', '#9B59B6', '#E74C3C', '#F39C12', '#1ABC9C',
+  '#E67E22', '#34495E', '#16A085', '#27AE60', '#2980B9', '#8E44AD',
+  '#C0392B', '#D35400',
+];
+
+const PRIORITIES: { key: 'high' | 'medium' | 'low'; label: string; color: string }[] = [
+  { key: 'high', label: 'High', color: '#EF4444' },
+  { key: 'medium', label: 'Medium', color: '#F97316' },
+  { key: 'low', label: 'Low', color: '#22C55E' },
 ];
 
 const AddSavingsGoalModal: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { colors, textStyles, spacing, borderRadius } = useTheme();
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
+  const borderC = isDark ? '#334155' : '#E2E8F0';
+  const bgC = colors.background;
 
   const { mode, goalId } = (route.params as any) || { mode: 'create' };
   const isEditMode = mode === 'edit';
@@ -81,7 +68,6 @@ const AddSavingsGoalModal: React.FC = () => {
   const { data: goalData, isLoading: goalLoading } = useSavingsGoal(goalId);
   const createMutation = useCreateSavingsGoal();
   const updateMutation = useUpdateSavingsGoal();
-
   const goal = goalData?.data?.data;
 
   const {
@@ -105,7 +91,6 @@ const AddSavingsGoalModal: React.FC = () => {
 
   const selectedIcon = watch('icon');
   const selectedColor = watch('color');
-  const selectedPriority = watch('priority');
   const targetDate = watch('targetDate');
 
   useEffect(() => {
@@ -113,10 +98,7 @@ const AddSavingsGoalModal: React.FC = () => {
       setValue('title', goal.title);
       setValue('description', goal.description || '');
       setValue('targetAmount', goal.targetAmount);
-      setValue(
-        'targetDate',
-        goal.targetDate ? new Date(goal.targetDate) : undefined,
-      );
+      setValue('targetDate', goal.targetDate ? new Date(goal.targetDate) : undefined);
       setValue('icon', goal.icon);
       setValue('color', goal.color);
       setValue('priority', goal.priority);
@@ -124,300 +106,219 @@ const AddSavingsGoalModal: React.FC = () => {
   }, [goal, isEditMode]);
 
   const onSubmit = async (data: any) => {
-    const formattedData = {
+    const formatted = {
       ...data,
       targetDate: data.targetDate ? data.targetDate.toISOString() : undefined,
       targetAmount: parseFloat(data.targetAmount),
     };
-
     if (isEditMode) {
-      await updateMutation.mutateAsync({ id: goalId, data: formattedData });
+      await updateMutation.mutateAsync({ id: goalId, data: formatted });
     } else {
-      await createMutation.mutateAsync(formattedData);
+      await createMutation.mutateAsync(formatted);
     }
     navigation.goBack();
   };
 
-  const styles = createStyles(colors, textStyles, spacing, borderRadius);
+  const isPending = createMutation.isPending || updateMutation.isPending;
 
   if (goalLoading && isEditMode) {
     return (
-      <View style={styles.container}>
+      <View style={[s.container, { backgroundColor: bgC }]}>
         <Spinner text="Loading..." />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[s.container, { backgroundColor: bgC }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="close" size={28} color={colors.text.primary} />
+      <View style={[s.header, { paddingTop: insets.top + 8, backgroundColor: surfaceC, borderBottomColor: borderC }]}>
+        <TouchableOpacity style={s.headerBtn} onPress={() => navigation.goBack()}>
+          <Icon name="close" size={22} color={textPri} />
         </TouchableOpacity>
-        <Text style={styles.title}>
-          {isEditMode ? 'Edit Savings Goal' : 'New Savings Goal'}
+        <Text style={[s.headerTitle, { color: textPri }]}>
+          {isEditMode ? 'Edit Goal' : 'New Goal'}
         </Text>
-        <View style={{ width: 28 }} />
+        <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* Icon & Color Preview */}
-        <View style={styles.previewSection}>
-          <View
-            style={[styles.preview, { backgroundColor: `${selectedColor}15` }]}
-          >
-            <Icon name={selectedIcon} size={48} color={selectedColor} />
-          </View>
-        </View>
-
-        {/* Icon Selector */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Icon</Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 24 }]}>
+        {/* Preview + Icon/Color */}
+        <View style={s.previewRow}>
           <TouchableOpacity
-            style={styles.selector}
+            style={[s.previewCircle, { backgroundColor: `${selectedColor}12` }]}
             onPress={() => setShowIconPicker(true)}
           >
-            <Icon name={selectedIcon} size={24} color={selectedColor} />
-            <Text style={styles.selectorText}>Select Icon</Text>
-            <Icon
-              name="chevron-forward"
-              size={20}
-              color={colors.text.secondary}
-            />
+            <Icon name={selectedIcon} size={28} color={selectedColor} />
+            <View style={[s.editBadge, { backgroundColor: surfaceC, borderColor: borderC }]}>
+              <Icon name="pencil" size={9} color={textSec} />
+            </View>
           </TouchableOpacity>
-        </View>
 
-        {/* Color Selector */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Color</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {COLORS.map(color => (
+          {/* Color row */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.colorRow}>
+            {COLORS.map(c => (
               <TouchableOpacity
-                key={color}
-                style={[
-                  styles.colorOption,
-                  {
-                    backgroundColor: color,
-                    borderWidth: selectedColor === color ? 3 : 0,
-                    borderColor: colors.text.inverse,
-                  },
-                ]}
-                onPress={() => setValue('color', color)}
+                key={c}
+                style={[s.colorDot, { backgroundColor: c }, selectedColor === c && s.colorDotActive]}
+                onPress={() => setValue('color', c)}
               >
-                {selectedColor === color && (
-                  <Icon
-                    name="checkmark"
-                    size={20}
-                    color={colors.text.inverse}
-                  />
-                )}
+                {selectedColor === c && <Icon name="checkmark" size={12} color="#FFF" />}
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
 
         {/* Title */}
-        <View style={styles.section}>
+        <View style={s.field}>
+          <Text style={[s.label, { color: textSec }]}>Title *</Text>
           <Controller
             control={control}
             name="title"
             render={({ field: { onChange, value } }) => (
-              <Input
-                label="Goal Title *"
-                placeholder="e.g., Buy a Car, Emergency Fund"
+              <TextInput
+                style={[s.input, { backgroundColor: surfaceC, borderColor: errors.title ? '#EF4444' : borderC, color: textPri }]}
+                placeholder="e.g., Buy a Car"
+                placeholderTextColor={isDark ? '#475569' : '#CBD5E1'}
                 value={value}
                 onChangeText={onChange}
-                error={errors.title?.message}
-                leftIcon="text-outline"
               />
             )}
           />
+          {errors.title && <Text style={s.error}>{errors.title.message as string}</Text>}
         </View>
 
         {/* Description */}
-        <View style={styles.section}>
+        <View style={s.field}>
+          <Text style={[s.label, { color: textSec }]}>Description</Text>
           <Controller
             control={control}
             name="description"
             render={({ field: { onChange, value } }) => (
-              <Input
-                label="Description (Optional)"
-                placeholder="Add details about your goal"
+              <TextInput
+                style={[s.input, s.inputMulti, { backgroundColor: surfaceC, borderColor: borderC, color: textPri }]}
+                placeholder="Optional details"
+                placeholderTextColor={isDark ? '#475569' : '#CBD5E1'}
                 value={value}
                 onChangeText={onChange}
-                type="multiline"
-                leftIcon="document-text-outline"
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
               />
             )}
           />
         </View>
 
         {/* Target Amount */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Target Amount *</Text>
+        <View style={s.field}>
+          <Text style={[s.label, { color: textSec }]}>Target Amount *</Text>
           <Controller
             control={control}
             name="targetAmount"
             render={({ field: { onChange, value } }) => (
-              <View style={styles.amountInputContainer}>
-                <Text style={styles.currencySymbol}>৳</Text>
+              <View style={[s.amountRow, { backgroundColor: surfaceC, borderColor: errors.targetAmount ? '#EF4444' : borderC }]}>
+                <Text style={[s.currency, { color: textSec }]}>৳</Text>
                 <TextInput
-                  placeholder="0.00"
+                  style={[s.amountInput, { color: textPri }]}
+                  placeholder="0"
+                  placeholderTextColor={isDark ? '#475569' : '#CBD5E1'}
                   keyboardType="decimal-pad"
                   value={value > 0 ? value.toString() : ''}
-                  onChangeText={text => {
-                    const numValue = parseFloat(text);
-                    onChange(isNaN(numValue) ? 0 : numValue);
+                  onChangeText={t => {
+                    const n = parseFloat(t);
+                    onChange(isNaN(n) ? 0 : n);
                   }}
-                  style={styles.amountTextInput}
-                  placeholderTextColor={colors.text.tertiary}
                 />
               </View>
             )}
           />
-          {errors.targetAmount && (
-            <Text style={styles.errorText}>
-              {errors.targetAmount.message as string}
-            </Text>
-          )}
+          {errors.targetAmount && <Text style={s.error}>{errors.targetAmount.message as string}</Text>}
         </View>
 
         {/* Target Date */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Target Date (Optional)</Text>
+        <View style={s.field}>
+          <Text style={[s.label, { color: textSec }]}>Target Date</Text>
           <TouchableOpacity
-            style={styles.dateSelector}
+            style={[s.selector, { backgroundColor: surfaceC, borderColor: borderC }]}
             onPress={() => setShowDatePicker(true)}
           >
-            <Icon
-              name="calendar-outline"
-              size={20}
-              color={colors.text.primary}
-            />
-            <Text style={styles.dateSelectorText}>
+            <Icon name="calendar-outline" size={16} color={textSec} />
+            <Text style={[s.selectorText, { color: targetDate ? textPri : (isDark ? '#475569' : '#CBD5E1') }]}>
               {targetDate
-                ? targetDate.toLocaleDateString('en-GB', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                  })
+                ? targetDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
                 : 'No deadline'}
             </Text>
-            <Icon
-              name="chevron-forward"
-              size={20}
-              color={colors.text.secondary}
-            />
+            {targetDate && (
+              <TouchableOpacity onPress={() => setValue('targetDate', undefined)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Icon name="close-circle" size={16} color={textSec} />
+              </TouchableOpacity>
+            )}
           </TouchableOpacity>
-          {targetDate && (
-            <TouchableOpacity
-              onPress={() => setValue('targetDate', undefined)}
-              style={styles.clearDate}
-            >
-              <Text style={styles.clearDateText}>Clear Date</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Priority */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Priority</Text>
-          <View style={styles.priorityOptions}>
-            <Controller
-              control={control}
-              name="priority"
-              render={({ field: { onChange, value } }) => (
-                <>
-                  <TouchableOpacity
-                    style={[
-                      styles.priorityOption,
-                      value === 'high' && styles.priorityOptionActive,
-                    ]}
-                    onPress={() => onChange('high')}
-                  >
-                    <Text
+        <View style={s.field}>
+          <Text style={[s.label, { color: textSec }]}>Priority</Text>
+          <Controller
+            control={control}
+            name="priority"
+            render={({ field: { onChange, value } }) => (
+              <View style={s.priorityRow}>
+                {PRIORITIES.map(p => {
+                  const active = value === p.key;
+                  return (
+                    <TouchableOpacity
+                      key={p.key}
                       style={[
-                        styles.priorityText,
-                        value === 'high' && styles.priorityTextActive,
+                        s.priorityChip,
+                        { borderColor: active ? p.color : borderC, backgroundColor: active ? `${p.color}12` : surfaceC },
                       ]}
+                      onPress={() => onChange(p.key)}
                     >
-                      High
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.priorityOption,
-                      value === 'medium' && styles.priorityOptionActive,
-                    ]}
-                    onPress={() => onChange('medium')}
-                  >
-                    <Text
-                      style={[
-                        styles.priorityText,
-                        value === 'medium' && styles.priorityTextActive,
-                      ]}
-                    >
-                      Medium
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.priorityOption,
-                      value === 'low' && styles.priorityOptionActive,
-                    ]}
-                    onPress={() => onChange('low')}
-                  >
-                    <Text
-                      style={[
-                        styles.priorityText,
-                        value === 'low' && styles.priorityTextActive,
-                      ]}
-                    >
-                      Low
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
-            />
-          </View>
+                      <View style={[s.priorityDot, { backgroundColor: p.color }]} />
+                      <Text style={[s.priorityText, { color: active ? p.color : textSec }]}>{p.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          />
         </View>
       </ScrollView>
 
       {/* Footer */}
-      <View style={styles.footer}>
-        <Button
-          variant="outline"
+      <View style={[s.footer, { borderTopColor: borderC, paddingBottom: insets.bottom + 8 }]}>
+        <TouchableOpacity
+          style={[s.footerBtn, s.cancelBtn, { borderColor: borderC }]}
           onPress={() => navigation.goBack()}
-          style={{ flex: 1, marginRight: spacing.sm }}
         >
-          Cancel
-        </Button>
-        <Button
+          <Text style={[s.cancelBtnText, { color: textSec }]}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.footerBtn, s.createBtn, { backgroundColor: selectedColor, opacity: isPending ? 0.6 : 1 }]}
           onPress={handleSubmit(onSubmit)}
-          loading={createMutation.isPending || updateMutation.isPending}
-          style={{ flex: 1, marginLeft: spacing.sm }}
+          disabled={isPending}
         >
-          {isEditMode ? 'Update' : 'Create Goal'}
-        </Button>
+          <Text style={s.createBtnText}>{isPending ? 'Saving...' : isEditMode ? 'Update' : 'Create Goal'}</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Date Picker Modal */}
+      {/* Date Picker */}
       <Modal visible={showDatePicker} transparent animationType="slide">
-        <View style={styles.pickerOverlay}>
-          <View style={styles.pickerContainer}>
-            <View style={styles.pickerHeader}>
+        <View style={s.pickerOverlay}>
+          <View style={[s.pickerSheet, { backgroundColor: surfaceC }]}>
+            <View style={[s.pickerHeader, { borderBottomColor: borderC }]}>
               <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                <Text style={styles.pickerCancel}>Cancel</Text>
+                <Text style={[s.pickerCancel, { color: textSec }]}>Cancel</Text>
               </TouchableOpacity>
-              <Text style={styles.pickerTitle}>Target Date</Text>
+              <Text style={[s.pickerTitle, { color: textPri }]}>Target Date</Text>
               <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                <Text style={styles.pickerDone}>Done</Text>
+                <Text style={[s.pickerDone, { color: selectedColor }]}>Done</Text>
               </TouchableOpacity>
             </View>
             <DatePicker
               date={targetDate || new Date()}
-              onDateChange={date => setValue('targetDate', date)}
+              onDateChange={d => setValue('targetDate', d)}
               mode="date"
               minimumDate={new Date()}
             />
@@ -425,44 +326,33 @@ const AddSavingsGoalModal: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Icon Picker Modal */}
+      {/* Icon Picker */}
       <Modal visible={showIconPicker} transparent animationType="slide">
-        <View style={styles.pickerOverlay}>
-          <View style={styles.pickerContainer}>
-            <View style={styles.pickerHeader}>
+        <View style={s.pickerOverlay}>
+          <View style={[s.pickerSheet, { backgroundColor: surfaceC, maxHeight: '70%' }]}>
+            <View style={[s.pickerHeader, { borderBottomColor: borderC }]}>
               <TouchableOpacity onPress={() => setShowIconPicker(false)}>
-                <Icon name="close" size={24} color={colors.text.primary} />
+                <Icon name="close" size={20} color={textPri} />
               </TouchableOpacity>
-              <Text style={styles.pickerTitle}>Select Icon</Text>
-              <View style={{ width: 24 }} />
+              <Text style={[s.pickerTitle, { color: textPri }]}>Select Icon</Text>
+              <View style={{ width: 20 }} />
             </View>
-            <ScrollView contentContainerStyle={styles.iconGrid}>
-              {ICONS.map(icon => (
-                <TouchableOpacity
-                  key={icon}
-                  style={[
-                    styles.iconOption,
-                    selectedIcon === icon && {
-                      backgroundColor: `${selectedColor}15`,
-                      borderColor: selectedColor,
-                    },
-                  ]}
-                  onPress={() => {
-                    setValue('icon', icon);
-                    setShowIconPicker(false);
-                  }}
-                >
-                  <Icon
-                    name={icon}
-                    size={32}
-                    color={
-                      selectedIcon === icon
-                        ? selectedColor
-                        : colors.text.secondary
-                    }
-                  />
-                </TouchableOpacity>
-              ))}
+            <ScrollView contentContainerStyle={s.iconGrid}>
+              {ICONS.map(icon => {
+                const active = selectedIcon === icon;
+                return (
+                  <TouchableOpacity
+                    key={icon}
+                    style={[
+                      s.iconItem,
+                      { borderColor: active ? selectedColor : borderC, backgroundColor: active ? `${selectedColor}12` : surfaceC },
+                    ]}
+                    onPress={() => { setValue('icon', icon); setShowIconPicker(false); }}
+                  >
+                    <Icon name={icon} size={22} color={active ? selectedColor : textSec} />
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
         </View>
@@ -471,207 +361,54 @@ const AddSavingsGoalModal: React.FC = () => {
   );
 };
 
-const createStyles = (
-  colors: any,
-  textStyles: any,
-  spacing: any,
-  borderRadius: any,
-) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    title: {
-      ...textStyles.h3,
-      color: colors.text.primary,
-    },
-    content: {
-      flex: 1,
-      paddingHorizontal: spacing.lg,
-    },
-    previewSection: {
-      alignItems: 'center',
-      paddingVertical: spacing.xl,
-    },
-    preview: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    section: {
-      marginBottom: spacing.xl,
-    },
-    sectionTitle: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      marginBottom: spacing.md,
-    },
-    selector: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: borderRadius.md,
-      backgroundColor: colors.surface,
-      gap: spacing.md,
-    },
-    selectorText: {
-      ...textStyles.body,
-      color: colors.text.primary,
-      flex: 1,
-    },
-    colorOption: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      marginRight: spacing.md,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    amountInputContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: borderRadius.md,
-      paddingHorizontal: spacing.md,
-      backgroundColor: colors.surface,
-    },
-    currencySymbol: {
-      ...textStyles.h3,
-      color: colors.text.secondary,
-      marginRight: spacing.sm,
-    },
-    amountTextInput: {
-      ...textStyles.h3,
-      color: colors.text.primary,
-      flex: 1,
-      paddingVertical: spacing.md,
-    },
-    dateSelector: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: borderRadius.md,
-      backgroundColor: colors.surface,
-      gap: spacing.md,
-    },
-    dateSelectorText: {
-      ...textStyles.body,
-      color: colors.text.primary,
-      flex: 1,
-    },
-    clearDate: {
-      alignSelf: 'flex-end',
-      marginTop: spacing.sm,
-    },
-    clearDateText: {
-      ...textStyles.caption,
-      color: colors.danger,
-    },
-    priorityOptions: {
-      flexDirection: 'row',
-      gap: spacing.md,
-    },
-    priorityOption: {
-      flex: 1,
-      paddingVertical: spacing.md,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: borderRadius.md,
-      backgroundColor: colors.surface,
-    },
-    priorityOptionActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    priorityText: {
-      ...textStyles.body,
-      color: colors.text.secondary,
-      fontWeight: '600',
-    },
-    priorityTextActive: {
-      color: colors.text.inverse,
-    },
-    footer: {
-      flexDirection: 'row',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-    errorText: {
-      ...textStyles.caption,
-      color: colors.danger,
-      marginTop: spacing.xs,
-    },
-    pickerOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'flex-end',
-    },
-    pickerContainer: {
-      backgroundColor: colors.background,
-      borderTopLeftRadius: borderRadius.xl,
-      borderTopRightRadius: borderRadius.xl,
-      paddingBottom: Platform.OS === 'ios' ? 40 : spacing.lg,
-      maxHeight: '80%',
-    },
-    pickerHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    pickerTitle: {
-      ...textStyles.h4,
-      color: colors.text.primary,
-    },
-    pickerCancel: {
-      ...textStyles.body,
-      color: colors.text.secondary,
-    },
-    pickerDone: {
-      ...textStyles.bodyMedium,
-      color: colors.primary,
-    },
-    iconGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      padding: spacing.lg,
-      gap: spacing.md,
-    },
-    iconOption: {
-      width: 64,
-      height: 64,
-      borderRadius: borderRadius.md,
-      borderWidth: 2,
-      borderColor: colors.border,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colors.surface,
-    },
-  });
+const s = StyleSheet.create({
+  container: { flex: 1 },
+
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 10, borderBottomWidth: 1 },
+  headerBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { flex: 1, fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  footer: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 10, borderTopWidth: 1 },
+  footerBtn: { flex: 1, height: 42, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  cancelBtn: { borderWidth: 1 },
+  cancelBtnText: { fontSize: 13, fontWeight: '600' },
+  createBtn: {},
+  createBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+
+  scroll: { padding: 16 },
+
+  previewRow: { alignItems: 'center', marginBottom: 20 },
+  previewCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  editBadge: { position: 'absolute', bottom: -2, right: -2, width: 20, height: 20, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+  colorRow: { maxHeight: 30 },
+  colorDot: { width: 24, height: 24, borderRadius: 12, marginHorizontal: 4, justifyContent: 'center', alignItems: 'center' },
+  colorDotActive: { borderWidth: 2, borderColor: '#FFF', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.15, shadowRadius: 2 },
+
+  field: { marginBottom: 16 },
+  label: { fontSize: 12, fontWeight: '600', marginBottom: 6 },
+  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13 },
+  inputMulti: { minHeight: 70, paddingTop: 10 },
+  error: { fontSize: 11, color: '#EF4444', marginTop: 4 },
+
+  amountRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, height: 44 },
+  currency: { fontSize: 16, fontWeight: '700', marginRight: 4 },
+  amountInput: { flex: 1, fontSize: 20, fontWeight: '800' },
+
+  selector: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, height: 42 },
+  selectorText: { flex: 1, fontSize: 13 },
+
+  priorityRow: { flexDirection: 'row', gap: 8 },
+  priorityChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
+  priorityDot: { width: 8, height: 8, borderRadius: 4 },
+  priorityText: { fontSize: 12, fontWeight: '600' },
+
+  pickerOverlay: { flex: 1, backgroundColor: '#00000055', justifyContent: 'flex-end' },
+  pickerSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: Platform.OS === 'ios' ? 40 : 16 },
+  pickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
+  pickerTitle: { fontSize: 14, fontWeight: '700' },
+  pickerCancel: { fontSize: 13 },
+  pickerDone: { fontSize: 13, fontWeight: '700' },
+  iconGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 8 },
+  iconItem: { width: 48, height: 48, borderRadius: 10, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
+});
 
 export default AddSavingsGoalModal;

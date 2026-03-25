@@ -9,676 +9,295 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { PieChart, ProgressChart } from 'react-native-chart-kit';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '../../../hooks/useTheme';
 import {
   useSavingsStats,
   useSavingsGoals,
 } from '../../../hooks/api/useSavingsGoals';
-import { Card, Spinner, ErrorState } from '../../../components/common';
+import { Spinner, ErrorState, AppHeader } from '../../../components/common';
 import { formatCurrency } from '../../../utils/formatters';
-
-const { width } = Dimensions.get('window');
 
 const SavingsGoalsStatsScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { colors, textStyles, spacing, borderRadius, shadows } = useTheme();
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
 
-  const { data: statsData, isLoading: statsLoading, error } = useSavingsStats();
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
+  const borderC = isDark ? '#334155' : '#F1F5F9';
+
+  const now = new Date();
+  const { data: stats, isLoading, error } = useSavingsStats(now.getFullYear(), now.getMonth() + 1);
   const { data: goalsData } = useSavingsGoals();
 
-  const stats = statsData?.data;
   const goals = goalsData?.data?.data || [];
   const activeGoals = goals.filter((g: any) => !g.isCompleted);
 
-  const styles = createStyles(
-    colors,
-    textStyles,
-    spacing,
-    borderRadius,
-    shadows,
-  );
-
-  // Chart config
-  const chartConfig = {
-    backgroundGradientFrom: colors.surface,
-    backgroundGradientTo: colors.surface,
-    decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
-    labelColor: (opacity = 1) => colors.text.secondary,
-    style: {
-      borderRadius: borderRadius.md,
-    },
-  };
-
-  // Pie chart data for goals distribution
-  const pieChartData = [
-    {
-      name: 'Completed',
-      population: stats?.completedGoals || 0,
-      color: colors.success,
-      legendFontColor: colors.text.primary,
-      legendFontSize: 12,
-    },
-    {
-      name: 'Active',
-      population: stats?.activeGoals || 0,
-      color: colors.primary,
-      legendFontColor: colors.text.primary,
-      legendFontSize: 12,
-    },
-  ].filter(item => item.population > 0);
-
-  // Progress chart data
-  const progressData = {
-    labels: ['Progress'],
-    data: [stats?.overallProgress ? stats.overallProgress / 100 : 0],
-  };
-
-  if (statsLoading) {
+  if (isLoading) {
     return (
-      <View style={styles.container}>
-        <Spinner text="Loading statistics..." />
+      <View style={[s.container, { backgroundColor: colors.background }]}>
+        <AppHeader title="Savings Statistics" />
+        <Spinner text="Loading..." />
       </View>
     );
   }
 
   if (error || !stats) {
     return (
-      <View style={styles.container}>
-        <ErrorState
-          title="Failed to load statistics"
-          message="Please try again"
-          onRetry={() => navigation.goBack()}
-        />
+      <View style={[s.container, { backgroundColor: colors.background }]}>
+        <AppHeader title="Savings Statistics" />
+        <ErrorState title="Failed to load" message="Please try again" onRetry={() => navigation.goBack()} />
       </View>
     );
   }
 
+  const pct = stats.overallProgress ?? 0;
+  const avgPerGoal = stats.totalGoals > 0 ? stats.totalCurrentAmount / stats.totalGoals : 0;
+
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={28} color={colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Savings Statistics</Text>
-        <View style={{ width: 28 }} />
-      </View>
+    <View style={[s.container, { backgroundColor: colors.background }]}>
+      <AppHeader title="Savings Statistics" />
 
-      <ScrollView style={styles.content}>
-        {/* Overview Cards */}
-        <View style={styles.summaryGrid}>
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryIcon}>
-              <Icon name="trophy" size={28} color={colors.success} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
+        {/* Summary Row */}
+        <View style={s.summaryRow}>
+          {[
+            { icon: 'trophy', color: '#22C55E', val: stats.completedGoals, label: 'Done' },
+            { icon: 'time-outline', color: '#3B82F6', val: stats.activeGoals, label: 'Active' },
+            { icon: 'flag-outline', color: '#F59E0B', val: stats.totalGoals, label: 'Total' },
+          ].map(item => (
+            <View key={item.label} style={[s.summaryCard, { backgroundColor: surfaceC, borderColor: borderC }]}>
+              <View style={[s.summaryIcon, { backgroundColor: `${item.color}10` }]}>
+                <Icon name={item.icon} size={16} color={item.color} />
+              </View>
+              <Text style={[s.summaryVal, { color: textPri }]}>{item.val}</Text>
+              <Text style={[s.summaryLabel, { color: textSec }]}>{item.label}</Text>
             </View>
-            <Text style={styles.summaryValue}>{stats.completedGoals}</Text>
-            <Text style={styles.summaryLabel}>Completed</Text>
-          </Card>
-
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryIcon}>
-              <Icon name="time" size={28} color={colors.primary} />
-            </View>
-            <Text style={styles.summaryValue}>{stats.activeGoals}</Text>
-            <Text style={styles.summaryLabel}>Active</Text>
-          </Card>
-
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryIcon}>
-              <Icon name="wallet" size={28} color={colors.warning} />
-            </View>
-            <Text style={styles.summaryValue}>{stats.totalGoals}</Text>
-            <Text style={styles.summaryLabel}>Total Goals</Text>
-          </Card>
+          ))}
         </View>
 
-        {/* Overall Progress */}
-        <Card style={styles.progressCard}>
-          <View style={styles.cardHeader}>
-            <Icon name="trending-up" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Overall Progress</Text>
-          </View>
+        {/* Overall Progress Card */}
+        <View style={[s.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          <Text style={[s.cardTitle, { color: textPri }]}>Overall Progress</Text>
 
-          <View style={styles.progressMainStats}>
-            <View style={styles.progressMainItem}>
-              <Text style={styles.progressMainLabel}>Saved</Text>
-              <Text
-                style={[styles.progressMainValue, { color: colors.success }]}
-              >
-                {formatCurrency(stats.totalCurrentAmount)}
-              </Text>
+          {/* Saved vs Target row */}
+          <View style={s.progressStats}>
+            <View>
+              <Text style={[s.progressLabel, { color: textSec }]}>Saved</Text>
+              <Text style={[s.progressValue, { color: '#22C55E' }]}>{formatCurrency(stats.totalCurrentAmount)}</Text>
             </View>
-            <View style={styles.progressMainItem}>
-              <Text style={styles.progressMainLabel}>Target</Text>
-              <Text
-                style={[styles.progressMainValue, { color: colors.primary }]}
-              >
-                {formatCurrency(stats.totalTargetAmount)}
-              </Text>
+            <View style={s.progressCenter}>
+              <Text style={[s.pctBig, { color: textPri }]}>{pct.toFixed(1)}%</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[s.progressLabel, { color: textSec }]}>Target</Text>
+              <Text style={[s.progressValue, { color: '#3B82F6' }]}>{formatCurrency(stats.totalTargetAmount)}</Text>
             </View>
           </View>
 
-          {/* Circular Progress */}
-          <View style={styles.chartWrapper}>
-            <ProgressChart
-              data={progressData}
-              width={width - 80}
-              height={180}
-              strokeWidth={16}
-              radius={60}
-              chartConfig={{
-                ...chartConfig,
-                color: (opacity = 1) => colors.primary,
-              }}
-              hideLegend
-            />
-            <View style={styles.progressCenter}>
-              <Text style={styles.progressCenterValue}>
-                {stats.overallProgress.toFixed(1)}%
-              </Text>
-              <Text style={styles.progressCenterLabel}>Complete</Text>
+          {/* Progress bar */}
+          <View style={[s.progressTrack, { backgroundColor: borderC }]}>
+            <View style={[s.progressFill, { width: `${Math.min(pct, 100)}%` as any, backgroundColor: '#22C55E' }]} />
+          </View>
+
+          <View style={s.remainingRow}>
+            <Text style={[s.remainingLabel, { color: textSec }]}>Remaining</Text>
+            <Text style={[s.remainingVal, { color: textPri }]}>{formatCurrency(stats.totalRemainingAmount)}</Text>
+          </View>
+        </View>
+
+        {/* Goals Donut Chart */}
+        <View style={[s.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          <Text style={[s.cardTitle, { color: textPri }]}>Goals Breakdown</Text>
+          <View style={s.donutWrap}>
+            <Svg width={140} height={140} viewBox="0 0 140 140">
+              {/* Background circle */}
+              <Circle
+                cx="70" cy="70" r="55"
+                stroke={borderC}
+                strokeWidth={12}
+                fill="none"
+              />
+              {/* Progress arc */}
+              <Circle
+                cx="70" cy="70" r="55"
+                stroke="#22C55E"
+                strokeWidth={12}
+                fill="none"
+                strokeDasharray={`${(Math.min(pct, 100) / 100) * 2 * Math.PI * 55} ${2 * Math.PI * 55}`}
+                strokeDashoffset={0}
+                strokeLinecap="round"
+                transform="rotate(-90 70 70)"
+              />
+            </Svg>
+            <View style={s.donutCenter}>
+              <Text style={[s.donutPct, { color: textPri }]}>{pct.toFixed(0)}%</Text>
+              <Text style={[s.donutLabel, { color: textSec }]}>saved</Text>
             </View>
           </View>
 
-          <View style={styles.remainingSection}>
-            <Text style={styles.remainingLabel}>Remaining Amount</Text>
-            <Text style={styles.remainingValue}>
-              {formatCurrency(stats.totalRemainingAmount)}
-            </Text>
-          </View>
-        </Card>
-
-        {/* Goals Distribution */}
-        {pieChartData.length > 0 && (
-          <Card style={styles.chartCard}>
-            <View style={styles.cardHeader}>
-              <Icon name="pie-chart" size={20} color={colors.primary} />
-              <Text style={styles.cardTitle}>Goals Distribution</Text>
+          {/* Legend */}
+          <View style={s.legendRow}>
+            <View style={s.legendItem}>
+              <View style={[s.legendDot, { backgroundColor: '#22C55E' }]} />
+              <Text style={[s.legendText, { color: textSec }]}>Completed ({stats.completedGoals})</Text>
             </View>
-            <PieChart
-              data={pieChartData}
-              width={width - 60}
-              height={220}
-              chartConfig={chartConfig}
-              accessor="population"
-              backgroundColor="transparent"
-              paddingLeft="15"
-              center={[10, 0]}
-              absolute
-            />
-          </Card>
-        )}
+            <View style={s.legendItem}>
+              <View style={[s.legendDot, { backgroundColor: '#3B82F6' }]} />
+              <Text style={[s.legendText, { color: textSec }]}>Active ({stats.activeGoals})</Text>
+            </View>
+          </View>
+        </View>
 
         {/* Financial Summary */}
-        <Card style={styles.financialCard}>
-          <View style={styles.cardHeader}>
-            <Icon name="cash" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Financial Summary</Text>
-          </View>
+        <View style={[s.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          <Text style={[s.cardTitle, { color: textPri }]}>Financial Summary</Text>
 
-          <View style={styles.financialRow}>
-            <View style={styles.financialItem}>
-              <Icon name="arrow-up-circle" size={24} color={colors.success} />
-              <View style={styles.financialInfo}>
-                <Text style={styles.financialLabel}>Total Saved</Text>
-                <Text style={styles.financialValue}>
-                  {formatCurrency(stats.totalCurrentAmount)}
-                </Text>
+          {[
+            { icon: 'arrow-up-circle', color: '#22C55E', label: 'Total Saved', val: formatCurrency(stats.totalCurrentAmount) },
+            { icon: 'flag', color: '#3B82F6', label: 'Total Target', val: formatCurrency(stats.totalTargetAmount) },
+            { icon: 'trending-down', color: '#F59E0B', label: 'Still Needed', val: formatCurrency(stats.totalRemainingAmount) },
+            { icon: 'calculator', color: '#8B5CF6', label: 'Avg per Goal', val: formatCurrency(avgPerGoal) },
+          ].map((r, i) => (
+            <View key={r.label}>
+              {i > 0 && <View style={[s.divider, { backgroundColor: borderC }]} />}
+              <View style={s.finRow}>
+                <View style={[s.finIcon, { backgroundColor: `${r.color}10` }]}>
+                  <Icon name={r.icon} size={15} color={r.color} />
+                </View>
+                <Text style={[s.finLabel, { color: textSec }]}>{r.label}</Text>
+                <Text style={[s.finVal, { color: textPri }]}>{r.val}</Text>
               </View>
             </View>
-          </View>
+          ))}
+        </View>
 
-          <View style={styles.financialRow}>
-            <View style={styles.financialItem}>
-              <Icon name="flag" size={24} color={colors.primary} />
-              <View style={styles.financialInfo}>
-                <Text style={styles.financialLabel}>Total Target</Text>
-                <Text style={styles.financialValue}>
-                  {formatCurrency(stats.totalTargetAmount)}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.financialRow}>
-            <View style={styles.financialItem}>
-              <Icon name="trending-down" size={24} color={colors.warning} />
-              <View style={styles.financialInfo}>
-                <Text style={styles.financialLabel}>Still Needed</Text>
-                <Text style={styles.financialValue}>
-                  {formatCurrency(stats.totalRemainingAmount)}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.financialRow}>
-            <View style={styles.financialItem}>
-              <Icon name="calculator" size={24} color={colors.info} />
-              <View style={styles.financialInfo}>
-                <Text style={styles.financialLabel}>Average per Goal</Text>
-                <Text style={styles.financialValue}>
-                  {formatCurrency(
-                    stats.totalGoals > 0
-                      ? stats.totalCurrentAmount / stats.totalGoals
-                      : 0,
-                  )}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </Card>
-
-        {/* Top Goals by Progress */}
+        {/* Top Active Goals */}
         {activeGoals.length > 0 && (
-          <Card style={styles.topGoalsCard}>
-            <View style={styles.cardHeader}>
-              <Icon name="star" size={20} color={colors.primary} />
-              <Text style={styles.cardTitle}>Top Active Goals</Text>
-            </View>
+          <View style={[s.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+            <Text style={[s.cardTitle, { color: textPri }]}>Top Active Goals</Text>
 
             {activeGoals
               .sort((a: any, b: any) => b.progress - a.progress)
               .slice(0, 5)
-              .map((goal: any, index: number) => (
-                <View key={goal._id} style={styles.topGoalRow}>
-                  <View style={styles.topGoalLeft}>
-                    <View
-                      style={[
-                        styles.topGoalRank,
-                        {
-                          backgroundColor:
-                            index === 0
-                              ? colors.warning
-                              : index === 1
-                              ? `${colors.primary}50`
-                              : `${colors.primary}20`,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.topGoalRankText,
-                          {
-                            color:
-                              index === 0
-                                ? colors.text.inverse
-                                : colors.primary,
-                          },
-                        ]}
-                      >
-                        {index + 1}
-                      </Text>
+              .map((goal: any, idx: number) => (
+                <View key={goal._id}>
+                  {idx > 0 && <View style={[s.divider, { backgroundColor: borderC }]} />}
+                  <TouchableOpacity
+                    style={s.goalRow}
+                    onPress={() => (navigation as any).navigate('SavingsGoalDetails', { goalId: goal._id })}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[s.goalIcon, { backgroundColor: `${goal.color}10` }]}>
+                      <Icon name={goal.icon} size={15} color={goal.color} />
                     </View>
-                    <View
-                      style={[
-                        styles.topGoalIcon,
-                        { backgroundColor: `${goal.color}15` },
-                      ]}
-                    >
-                      <Icon name={goal.icon} size={20} color={goal.color} />
-                    </View>
-                    <View style={styles.topGoalInfo}>
-                      <Text style={styles.topGoalName}>{goal.title}</Text>
-                      <View style={styles.topGoalProgressBar}>
-                        <View
-                          style={[
-                            styles.topGoalProgressFill,
-                            {
-                              width: `${Math.min(goal.progress, 100)}%`,
-                              backgroundColor: goal.color,
-                            },
-                          ]}
-                        />
+                    <View style={s.goalInfo}>
+                      <Text style={[s.goalName, { color: textPri }]} numberOfLines={1}>{goal.title}</Text>
+                      <View style={[s.goalBar, { backgroundColor: `${goal.color}15` }]}>
+                        <View style={[s.goalBarFill, { width: `${Math.min(goal.progress, 100)}%` as any, backgroundColor: goal.color }]} />
                       </View>
                     </View>
-                  </View>
-                  <View style={styles.topGoalRight}>
-                    <Text style={styles.topGoalProgress}>
-                      {goal.progress.toFixed(0)}%
-                    </Text>
-                    <Text style={styles.topGoalAmount}>
-                      {formatCurrency(goal.currentAmount)}
-                    </Text>
-                  </View>
+                    <View style={s.goalRight}>
+                      <Text style={[s.goalPct, { color: goal.color }]}>{goal.progress.toFixed(0)}%</Text>
+                      <Text style={[s.goalAmt, { color: textSec }]}>{formatCurrency(goal.currentAmount)}</Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
               ))}
-          </Card>
+          </View>
         )}
 
         {/* Insights */}
-        <Card style={styles.insightsCard}>
-          <View style={styles.cardHeader}>
-            <Icon name="bulb" size={20} color={colors.warning} />
-            <Text style={styles.cardTitle}>Insights</Text>
-          </View>
+        <View style={[s.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          <Text style={[s.cardTitle, { color: textPri }]}>Insights</Text>
 
-          <View style={styles.insightItem}>
-            <Icon name="checkmark-circle" size={18} color={colors.success} />
-            <Text style={styles.insightText}>
-              You've completed{' '}
-              <Text style={styles.insightHighlight}>
-                {stats.completedGoals}
-              </Text>{' '}
-              out of{' '}
-              <Text style={styles.insightHighlight}>{stats.totalGoals}</Text>{' '}
-              goals
-            </Text>
-          </View>
-
-          {stats.overallProgress < 50 && (
-            <View style={styles.insightItem}>
-              <Icon name="alert-circle" size={18} color={colors.warning} />
-              <Text style={styles.insightText}>
-                You're at{' '}
-                <Text style={styles.insightHighlight}>
-                  {stats.overallProgress.toFixed(1)}%
-                </Text>{' '}
-                of your total savings goal. Keep going!
-              </Text>
-            </View>
-          )}
-
-          {stats.overallProgress >= 50 && stats.overallProgress < 100 && (
-            <View style={styles.insightItem}>
-              <Icon name="trending-up" size={18} color={colors.success} />
-              <Text style={styles.insightText}>
-                Great progress! You're more than halfway to your total goal at{' '}
-                <Text style={styles.insightHighlight}>
-                  {stats.overallProgress.toFixed(1)}%
-                </Text>
-              </Text>
-            </View>
-          )}
-
-          {stats.activeGoals > 0 && (
-            <View style={styles.insightItem}>
-              <Icon name="time" size={18} color={colors.primary} />
-              <Text style={styles.insightText}>
-                You have{' '}
-                <Text style={styles.insightHighlight}>{stats.activeGoals}</Text>{' '}
-                active goal{stats.activeGoals !== 1 ? 's' : ''} in progress
-              </Text>
-            </View>
-          )}
-
-          {stats.totalRemainingAmount > 0 && (
-            <View style={styles.insightItem}>
-              <Icon name="cash" size={18} color={colors.info} />
-              <Text style={styles.insightText}>
-                You need{' '}
-                <Text style={styles.insightHighlight}>
-                  {formatCurrency(stats.totalRemainingAmount)}
-                </Text>{' '}
-                more to reach all your goals
-              </Text>
-            </View>
-          )}
-        </Card>
-
-        <View style={{ height: 30 }} />
+          {[
+            { icon: 'checkmark-circle', color: '#22C55E', text: `You've completed ${stats.completedGoals} out of ${stats.totalGoals} goals` },
+            pct < 50
+              ? { icon: 'alert-circle', color: '#F59E0B', text: `You're at ${pct.toFixed(1)}% of your total savings goal. Keep going!` }
+              : pct < 100
+              ? { icon: 'trending-up', color: '#22C55E', text: `Great progress! More than halfway at ${pct.toFixed(1)}%` }
+              : null,
+            stats.activeGoals > 0
+              ? { icon: 'time', color: '#3B82F6', text: `${stats.activeGoals} active goal${stats.activeGoals !== 1 ? 's' : ''} in progress` }
+              : null,
+            stats.totalRemainingAmount > 0
+              ? { icon: 'cash', color: '#8B5CF6', text: `Need ${formatCurrency(stats.totalRemainingAmount)} more to reach all goals` }
+              : null,
+          ]
+            .filter(Boolean)
+            .map((insight: any, idx) => (
+              <View key={idx} style={s.insightRow}>
+                <View style={[s.insightDot, { backgroundColor: `${insight.color}15` }]}>
+                  <Icon name={insight.icon} size={13} color={insight.color} />
+                </View>
+                <Text style={[s.insightText, { color: textSec }]}>{insight.text}</Text>
+              </View>
+            ))}
+        </View>
       </ScrollView>
     </View>
   );
 };
 
-const createStyles = (
-  colors: any,
-  textStyles: any,
-  spacing: any,
-  borderRadius: any,
-  shadows: any,
-) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    headerTitle: {
-      ...textStyles.h3,
-      color: colors.text.primary,
-    },
-    content: {
-      flex: 1,
-      padding: spacing.lg,
-    },
-    summaryGrid: {
-      flexDirection: 'row',
-      gap: spacing.md,
-      marginBottom: spacing.lg,
-    },
-    summaryCard: {
-      flex: 1,
-      alignItems: 'center',
-      paddingVertical: spacing.lg,
-    },
-    summaryIcon: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: colors.background,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: spacing.md,
-    },
-    summaryValue: {
-      ...textStyles.h2,
-      color: colors.text.primary,
-      fontWeight: '700',
-      marginBottom: spacing.xs,
-    },
-    summaryLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-    },
-    progressCard: {
-      marginBottom: spacing.lg,
-    },
-    cardHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      marginBottom: spacing.md,
-    },
-    cardTitle: {
-      ...textStyles.h4,
-      color: colors.text.primary,
-    },
-    progressMainStats: {
-      flexDirection: 'row',
-      gap: spacing.md,
-      marginBottom: spacing.lg,
-    },
-    progressMainItem: {
-      flex: 1,
-      backgroundColor: colors.background,
-      padding: spacing.md,
-      borderRadius: borderRadius.md,
-      alignItems: 'center',
-    },
-    progressMainLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      marginBottom: spacing.xs,
-    },
-    progressMainValue: {
-      ...textStyles.bodyMedium,
-      fontWeight: '700',
-    },
-    chartWrapper: {
-      alignItems: 'center',
-      marginVertical: spacing.md,
-      position: 'relative',
-    },
-    progressCenter: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    progressCenterValue: {
-      ...textStyles.h1,
-      color: colors.text.primary,
-      fontWeight: '700',
-    },
-    progressCenterLabel: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-      marginTop: spacing.xs,
-    },
-    remainingSection: {
-      backgroundColor: colors.background,
-      padding: spacing.lg,
-      borderRadius: borderRadius.md,
-      alignItems: 'center',
-    },
-    remainingLabel: {
-      ...textStyles.body,
-      color: colors.text.secondary,
-      marginBottom: spacing.sm,
-    },
-    remainingValue: {
-      ...textStyles.h3,
-      color: colors.warning,
-      fontWeight: '700',
-    },
-    chartCard: {
-      marginBottom: spacing.lg,
-    },
-    financialCard: {
-      marginBottom: spacing.lg,
-    },
-    financialRow: {
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    financialItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-    },
-    financialInfo: {
-      flex: 1,
-    },
-    financialLabel: {
-      ...textStyles.body,
-      color: colors.text.secondary,
-      marginBottom: 4,
-    },
-    financialValue: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      fontWeight: '700',
-    },
-    topGoalsCard: {
-      marginBottom: spacing.lg,
-    },
-    topGoalRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    topGoalLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      flex: 1,
-    },
-    topGoalRank: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    topGoalRankText: {
-      ...textStyles.caption,
-      fontWeight: '700',
-      fontSize: 12,
-    },
-    topGoalIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    topGoalInfo: {
-      flex: 1,
-    },
-    topGoalName: {
-      ...textStyles.body,
-      color: colors.text.primary,
-      marginBottom: spacing.xs,
-    },
-    topGoalProgressBar: {
-      height: 4,
-      backgroundColor: colors.border,
-      borderRadius: 2,
-      overflow: 'hidden',
-    },
-    topGoalProgressFill: {
-      height: '100%',
-      borderRadius: 2,
-    },
-    topGoalRight: {
-      alignItems: 'flex-end',
-    },
-    topGoalProgress: {
-      ...textStyles.bodyMedium,
-      color: colors.text.primary,
-      fontWeight: '700',
-      marginBottom: 4,
-    },
-    topGoalAmount: {
-      ...textStyles.caption,
-      color: colors.text.secondary,
-    },
-    insightsCard: {
-      //   backgroundColor: `${colors.warning}10`,
-      borderWidth: 1,
-      borderColor: `${colors.warning}30`,
-      marginBottom: spacing.lg,
-    },
-    insightItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      paddingVertical: spacing.sm,
-    },
-    insightText: {
-      ...textStyles.body,
-      color: colors.text.secondary,
-      flex: 1,
-      lineHeight: 22,
-    },
-    insightHighlight: {
-      color: colors.text.primary,
-      fontWeight: '700',
-    },
-  });
+const s = StyleSheet.create({
+  container: { flex: 1 },
+
+  summaryRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginTop: 12, marginBottom: 12 },
+  summaryCard: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 10, borderWidth: 1, gap: 4 },
+  summaryIcon: { width: 30, height: 30, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  summaryVal: { fontSize: 18, fontWeight: '800' },
+  summaryLabel: { fontSize: 10 },
+
+  card: { marginHorizontal: 16, marginBottom: 12, borderRadius: 12, borderWidth: 1, padding: 14 },
+  cardTitle: { fontSize: 14, fontWeight: '700', marginBottom: 12 },
+
+  progressStats: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  progressLabel: { fontSize: 10, marginBottom: 2 },
+  progressValue: { fontSize: 14, fontWeight: '700' },
+  progressCenter: { alignItems: 'center' },
+  pctBig: { fontSize: 22, fontWeight: '800' },
+  progressTrack: { height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 8 },
+  progressFill: { height: '100%', borderRadius: 3 },
+  remainingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  remainingLabel: { fontSize: 11 },
+  remainingVal: { fontSize: 13, fontWeight: '700' },
+
+  divider: { height: 1, marginVertical: 8 },
+
+  finRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  finIcon: { width: 28, height: 28, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  finLabel: { flex: 1, fontSize: 12 },
+  finVal: { fontSize: 13, fontWeight: '700' },
+
+  goalRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  goalIcon: { width: 30, height: 30, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  goalInfo: { flex: 1 },
+  goalName: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
+  goalBar: { height: 4, borderRadius: 2, overflow: 'hidden' },
+  goalBarFill: { height: '100%', borderRadius: 2 },
+  goalRight: { alignItems: 'flex-end', minWidth: 55 },
+  goalPct: { fontSize: 12, fontWeight: '800' },
+  goalAmt: { fontSize: 10, marginTop: 1 },
+
+  donutWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  donutCenter: { position: 'absolute', alignItems: 'center' },
+  donutPct: { fontSize: 22, fontWeight: '800' },
+  donutLabel: { fontSize: 10, marginTop: -2 },
+  legendRow: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontSize: 11 },
+
+  insightRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
+  insightDot: { width: 24, height: 24, borderRadius: 6, justifyContent: 'center', alignItems: 'center', marginTop: 1 },
+  insightText: { flex: 1, fontSize: 12, lineHeight: 17 },
+});
 
 export default SavingsGoalsStatsScreen;

@@ -38,7 +38,7 @@ export const markMessagesAsRead = async (userId: string): Promise<number> => {
 
 export const getUnreadCount = async (): Promise<number> => {
   const response = await apiClient.get('/chat/unread-count');
-  return response.data.data.count;
+  return response.data.data?.unreadCount ?? response.data.data?.count ?? 0;
 };
 
 export const deleteMessage = async (messageId: string): Promise<void> => {
@@ -47,6 +47,15 @@ export const deleteMessage = async (messageId: string): Promise<void> => {
 
 export const searchUserByEmail = async (email: string) => {
   const response = await apiClient.get('/auth/search', { params: { email } });
+  return response.data.data;
+};
+
+export const heartbeat = async (): Promise<void> => {
+  await apiClient.post('/chat/heartbeat');
+};
+
+export const getOnlineStatus = async (userId: string): Promise<{ isOnline: boolean; lastSeen: string | null }> => {
+  const response = await apiClient.get(`/chat/online-status/${userId}`);
   return response.data.data;
 };
 
