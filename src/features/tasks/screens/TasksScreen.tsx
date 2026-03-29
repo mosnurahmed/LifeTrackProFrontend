@@ -10,9 +10,9 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../../hooks/useTheme';
 import { useTasks, useDeleteTask, useTaskStats, useUpdateTaskStatus } from '../../../hooks/api/useTasks';
-import { AppHeader } from '../../../components/common';
+import { AppHeader, useGuide } from '../../../components/common';
 import { useConfirm } from '../../../components/common/ConfirmModal';
-import { SkeletonList } from '../../../components/common/Loading';
+import { TasksSkeleton } from '../../../components/common/Loading/ScreenSkeletons';
 import TaskItem from '../components/TaskItem';
 
 const DATE_FILTERS = [
@@ -33,6 +33,7 @@ const TasksScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const { confirm } = useConfirm();
+  const { GuideButton, GuideView } = useGuide('tasks');
 
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
@@ -74,7 +75,7 @@ const TasksScreen: React.FC = () => {
   if (isLoading) return (
     <View style={[st.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Tasks" />
-      <SkeletonList count={5} />
+      <TasksSkeleton />
     </View>
   );
 

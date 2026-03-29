@@ -13,6 +13,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
 import { useConfirm } from '../../../components/common/ConfirmModal';
+import { useGuide } from '../../../components/common';
 import {
   useMessages, useSendMessage, useMarkAsRead, useDeleteMessage,
   useOnlineStatus, useHeartbeat,
@@ -79,6 +80,7 @@ const ChatScreen: React.FC = () => {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { confirm } = useConfirm();
+  const { GuideButton, GuideView } = useGuide('chatScreen');
   const queryClient = useQueryClient();
 
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
@@ -183,6 +185,7 @@ const ChatScreen: React.FC = () => {
             </Text>
           </View>
         </View>
+        <GuideButton color={textPri} />
       </View>
 
       {/* Messages */}
@@ -232,6 +235,7 @@ const ChatScreen: React.FC = () => {
           <Icon name="send" size={16} color={inputText.trim() ? '#FFFFFF' : textSec} />
         </TouchableOpacity>
       </View>
+      <GuideView />
     </KeyboardAvoidingView>
   );
 };

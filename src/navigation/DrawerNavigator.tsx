@@ -21,6 +21,7 @@ import CategoriesScreen from '../features/categories/screens/CategoriesScreen';
 import BazarScreen from '../features/bazar/screens/BazarScreen';
 import ExpensesScreen from '../features/expenses/screens/ExpensesScreen';
 import { ConversationsScreen } from '../features/chat/screens';
+import LoansScreen from '../features/loans/screens/LoansScreen';
 
 const Drawer = createDrawerNavigator<DrawerParamList>();
 
@@ -92,6 +93,11 @@ const DrawerNavigator: React.FC = () => {
       <Drawer.Screen
         name="Chat"
         component={ConversationsScreen}
+        options={{ headerShown: false }}
+      />
+      <Drawer.Screen
+        name="Loans"
+        component={LoansScreen}
         options={{ headerShown: false }}
       />
       <Drawer.Screen

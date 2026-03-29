@@ -19,7 +19,8 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../../../hooks/useTheme';
 import { useBudgetSummary, useSetTotalBudget, useSetCategoryMonthlyBudget } from '../../../hooks/api/useBudget';
 import { formatCurrency } from '../../../utils/formatters';
-import { Spinner, AppHeader } from '../../../components/common';
+import { AppHeader, useGuide } from '../../../components/common';
+import { BudgetSkeleton } from '../../../components/common/Loading/ScreenSkeletons';
 import type { BudgetStatus } from '../../../api/endpoints/budget';
 
 const MONTH_NAMES = [
@@ -108,6 +109,7 @@ const CategoryBudgetRow = ({
 
 const BudgetScreen: React.FC = () => {
   const { colors, textStyles, spacing, borderRadius, shadows } = useTheme();
+  const { GuideButton, GuideView } = useGuide('budget');
 
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
@@ -212,6 +214,15 @@ const BudgetScreen: React.FC = () => {
     : overallPct >= 80  ? '#F97316'
     : '#22C55E';
 
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <AppHeader title="Budget" />
+        <BudgetSkeleton />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Budget" />
@@ -239,8 +250,6 @@ const BudgetScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {isLoading ? <Spinner text="Loading..." /> : (
-          <>
             {/* Hero Card */}
             <LinearGradient
               colors={[heroColor, `${heroColor}CC`]}
@@ -360,9 +369,8 @@ const BudgetScreen: React.FC = () => {
             )}
 
             <View style={{ height: 40 }} />
-          </>
-        )}
       </ScrollView>
+
 
       {/* ── Total Budget Modal ── */}
       <Modal visible={totalModal} transparent animationType="slide" onRequestClose={() => setTotalModal(false)}>

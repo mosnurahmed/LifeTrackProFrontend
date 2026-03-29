@@ -13,8 +13,9 @@ import { useTheme } from '../../../hooks/useTheme';
 import {
   useNotes, useTogglePin, useToggleArchive, useDeleteNote,
 } from '../../../hooks/api/useNotes';
-import { AppHeader } from '../../../components/common';
+import { AppHeader, useGuide } from '../../../components/common';
 import { useConfirm } from '../../../components/common/ConfirmModal';
+import { NotesSkeleton } from '../../../components/common/Loading/ScreenSkeletons';
 import type { Note } from '../../../api/endpoints/notes';
 
 // ─── Note Card ────────────────────────────────────────────────────────────────
@@ -112,6 +113,7 @@ const NotesScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const { confirm } = useConfirm();
+  const { GuideButton, GuideView } = useGuide('notes');
   const primary = colors.primary;
 
   const textSec = isDark ? '#94A3B8' : '#64748B';
@@ -159,6 +161,25 @@ const NotesScreen: React.FC = () => {
     const ok = await confirm({ title: 'Delete Note', message: `Delete "${note.title || 'this note'}"?`, confirmText: 'Delete', variant: 'danger' });
     if (ok) deleteMutation.mutate(note._id);
   };
+
+  if (isLoading) {
+    return (
+      <View style={[st.container, { backgroundColor: colors.background }]}>
+        <AppHeader
+          title="Notes"
+          right={
+            <TouchableOpacity
+              style={[st.searchBtn, { backgroundColor: `${primary}12` }]}
+              onPress={() => setSearchVisible(v => !v)}
+            >
+              <Icon name="search-outline" size={18} color={primary} />
+            </TouchableOpacity>
+          }
+        />
+        <NotesSkeleton />
+      </View>
+    );
+  }
 
   return (
     <View style={[st.container, { backgroundColor: colors.background }]}>

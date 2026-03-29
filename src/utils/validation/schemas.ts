@@ -74,7 +74,7 @@ export const bazarItemSchema = yup.object({
     .positive('Quantity must be positive')
     .required('Quantity is required'),
   unit: yup.string().required('Unit is required'),
-  estimatedPrice: yup.number().positive().optional(),
+  actualPrice: yup.number().positive().optional(),
   category: yup.string().optional(),
   notes: yup.string().optional(),
 });

@@ -26,13 +26,112 @@ import {
   useSetSavingsAccount,
   useAddContribution,
 } from '../../../hooks/api/useSavingsGoals';
-import { AppHeader } from '../../../components/common';
+import {
+  useInvestments,
+  useDeleteInvestment,
+  useInvestmentStats,
+} from '../../../hooks/api/useInvestments';
+import { AppHeader, useGuide } from '../../../components/common';
+import { SavingsSkeleton } from '../../../components/common/Loading/ScreenSkeletons';
 import { useConfirm } from '../../../components/common/ConfirmModal';
 import { formatCurrency } from '../../../utils/formatters';
 import type {
   SavingsGoal,
   MonthlyHistoryItem,
 } from '../../../api/endpoints/savingsGoals';
+
+const INV_TYPE_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
+  fd: { icon: 'business-outline', color: '#F97316', label: 'FD' },
+  dps: { icon: 'repeat-outline', color: '#3B82F6', label: 'DPS' },
+  sip: { icon: 'trending-up-outline', color: '#8B5CF6', label: 'SIP' },
+  sanchayapatra: { icon: 'document-text-outline', color: '#10B981', label: 'Sanchayapatra' },
+  bond: { icon: 'ribbon-outline', color: '#06B6D4', label: 'Bond' },
+  insurance: { icon: 'shield-checkmark-outline', color: '#EF4444', label: 'Insurance' },
+  custom: { icon: 'cube-outline', color: '#64748B', label: 'Custom' },
+};
+
+// ─── Investment Card ─────────────────────────────────────────────────────────
+
+const InvestmentCard = ({
+  inv,
+  onPress,
+  onDelete,
+  isDark,
+}: {
+  inv: any;
+  onPress: () => void;
+  onDelete: () => void;
+  isDark: boolean;
+}) => {
+  const tc = INV_TYPE_CONFIG[inv.type] || INV_TYPE_CONFIG.custom;
+  const textPri = isDark ? '#F1F5F9' : '#1E293B';
+  const textSec = isDark ? '#94A3B8' : '#64748B';
+  const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
+  const borderC = isDark ? '#334155' : '#F1F5F9';
+
+  const totalDeposited = inv.totalDeposited ?? 0;
+  const maturityAmount = inv.maturityAmount ?? 0;
+  const pct = maturityAmount > 0 ? Math.min((totalDeposited / maturityAmount) * 100, 100) : 0;
+
+  // Tenure progress — recurring: by installments, lump sum: by time
+  const startDate = inv.startDate ? new Date(inv.startDate) : null;
+  const tenure = inv.tenure ?? 0;
+  const paidInstallments = inv.isRecurring ? (inv.contributions?.length ?? 0) : 0;
+  const elapsed = inv.isRecurring
+    ? paidInstallments
+    : startDate ? Math.max(0, (Date.now() - startDate.getTime()) / (30.44 * 86400000)) : 0;
+  const tenurePct = tenure > 0 ? Math.min((elapsed / tenure) * 100, 100) : 0;
+
+  return (
+    <TouchableOpacity
+      style={[styles.goalCard, { backgroundColor: surfaceC, borderColor: borderC }]}
+      onPress={onPress}
+      onLongPress={onDelete}
+      activeOpacity={0.78}
+    >
+      <View style={styles.goalRow}>
+        <View style={[styles.goalIconWrap, { backgroundColor: `${tc.color}10` }]}>
+          <Icon name={tc.icon} size={16} color={tc.color} />
+        </View>
+        <View style={styles.goalMeta}>
+          <View style={styles.goalTitleRow}>
+            <Text style={[styles.goalTitle, { color: textPri }]} numberOfLines={1}>
+              {inv.name}
+            </Text>
+            <View style={[styles.invTypeBadge, { backgroundColor: `${tc.color}15` }]}>
+              <Text style={[styles.invTypeBadgeText, { color: tc.color }]}>{tc.label}</Text>
+            </View>
+          </View>
+
+          {/* Tenure progress bar */}
+          <View style={[styles.progressTrack, { backgroundColor: `${tc.color}12` }]}>
+            <View style={[styles.progressFill, { width: `${tenurePct}%` as any, backgroundColor: tc.color }]} />
+          </View>
+
+          <View style={styles.goalBottom}>
+            <Text style={[styles.progressAmt, { color: textSec }]}>
+              {formatCurrency(totalDeposited)}
+              <Text style={{ color: isDark ? '#475569' : '#CBD5E1' }}>
+                {' / '}{formatCurrency(maturityAmount)}
+              </Text>
+            </Text>
+            <View style={styles.goalTags}>
+              {inv.interestRate > 0 && (
+                <Text style={[styles.tagText, { color: '#22C55E' }]}>{inv.interestRate}%</Text>
+              )}
+              {inv.isClosed && (
+                <Icon name="checkmark-circle" size={13} color="#22C55E" />
+              )}
+              {!inv.isClosed && (
+                <Text style={[styles.progressPct, { color: tc.color }]}>{pct.toFixed(0)}%</Text>
+              )}
+            </View>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 const MONTH_NAMES = [
   'Jan',
@@ -169,6 +268,7 @@ const GoalCard = ({
 const SavingsGoalsScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
+  const { GuideButton, GuideView } = useGuide('savings');
 
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
@@ -176,7 +276,7 @@ const SavingsGoalsScreen: React.FC = () => {
   const borderC = isDark ? '#334155' : '#F1F5F9';
 
   const now = new Date();
-  const [tab, setTab] = useState<'overview' | 'goals'>('overview');
+  const [tab, setTab] = useState<'overview' | 'goals' | 'investments'>('overview');
   const [goalFilter, setGoalFilter] = useState<'active' | 'completed' | 'all'>(
     'active',
   );
@@ -192,11 +292,26 @@ const SavingsGoalsScreen: React.FC = () => {
   const [contribNote, setContribNote] = useState('');
   const { confirm } = useConfirm();
 
-  const { data: goalsData, refetch, isRefetching } = useSavingsGoals();
+  const { data: goalsData, isLoading, refetch, isRefetching } = useSavingsGoals();
   const { data: stats } = useSavingsStats(selectedYear, selectedMonth);
   const setAccountMutation = useSetSavingsAccount();
   const addContribMutation = useAddContribution();
   const deleteMutation = useDeleteSavingsGoal();
+
+  // Investments
+  const { data: investments = [], isLoading: invLoading, refetch: invRefetch, isRefetching: invRefetching } = useInvestments();
+  const { data: invStats } = useInvestmentStats();
+  const deleteInvMutation = useDeleteInvestment();
+
+  const handleDeleteInvestment = async (inv: any) => {
+    const ok = await confirm({
+      title: 'Delete Investment',
+      message: `Delete "${inv.name}"?`,
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+    if (ok) deleteInvMutation.mutate(inv._id);
+  };
 
   const allGoals: SavingsGoal[] = useMemo(
     () => (goalsData as any)?.data?.data ?? [],
@@ -275,6 +390,27 @@ const SavingsGoalsScreen: React.FC = () => {
   const activeCount = allGoals.filter(g => !g.isCompleted).length;
   const completedCount = allGoals.filter(g => g.isCompleted).length;
 
+  const statsNavTarget = tab === 'investments' ? 'InvestmentStats' : 'SavingsGoalsStats';
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <AppHeader
+          title="Savings"
+          right={
+            <TouchableOpacity
+              style={[styles.statsBtn, { backgroundColor: '#22C55E12' }]}
+              onPress={() => (navigation as any).navigate(statsNavTarget)}
+            >
+              <Icon name="stats-chart-outline" size={20} color="#22C55E" />
+            </TouchableOpacity>
+          }
+        />
+        <SavingsSkeleton />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
@@ -282,7 +418,7 @@ const SavingsGoalsScreen: React.FC = () => {
         right={
           <TouchableOpacity
             style={[styles.statsBtn, { backgroundColor: '#22C55E12' }]}
-            onPress={() => (navigation as any).navigate('SavingsGoalsStats')}
+            onPress={() => (navigation as any).navigate(statsNavTarget)}
           >
             <Icon name="stats-chart-outline" size={20} color="#22C55E" />
           </TouchableOpacity>
@@ -296,34 +432,38 @@ const SavingsGoalsScreen: React.FC = () => {
           { backgroundColor: surfaceC, borderBottomColor: borderC },
         ]}
       >
-        {(['overview', 'goals'] as const).map(t => (
-          <TouchableOpacity
-            key={t}
-            style={[
-              styles.tab,
-              tab === t && {
-                borderBottomColor: '#22C55E',
-                borderBottomWidth: 2,
-              },
-            ]}
-            onPress={() => setTab(t)}
-          >
-            <Icon
-              name={t === 'overview' ? 'wallet-outline' : 'flag-outline'}
-              size={15}
-              color={tab === t ? '#22C55E' : textSec}
-            />
-            <Text
+        {(['overview', 'goals', 'investments'] as const).map(t => {
+          const tabIcon = t === 'overview' ? 'wallet-outline' : t === 'goals' ? 'flag-outline' : 'trending-up-outline';
+          const tabLabel = t === 'overview' ? 'Overview' : t === 'goals' ? `Goals (${activeCount})` : `Investments (${(investments as any[]).length})`;
+          return (
+            <TouchableOpacity
+              key={t}
               style={[
-                styles.tabText,
-                { color: tab === t ? '#22C55E' : textSec },
-                tab === t && { fontWeight: '700' },
+                styles.tab,
+                tab === t && {
+                  borderBottomColor: '#22C55E',
+                  borderBottomWidth: 2,
+                },
               ]}
+              onPress={() => setTab(t)}
             >
-              {t === 'overview' ? 'Overview' : `Goals (${activeCount})`}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Icon
+                name={tabIcon}
+                size={15}
+                color={tab === t ? '#22C55E' : textSec}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: tab === t ? '#22C55E' : textSec },
+                  tab === t && { fontWeight: '700' },
+                ]}
+              >
+                {tabLabel}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <ScrollView
@@ -331,8 +471,8 @@ const SavingsGoalsScreen: React.FC = () => {
         contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
+            refreshing={tab === 'investments' ? invRefetching : isRefetching}
+            onRefresh={tab === 'investments' ? invRefetch : refetch}
             colors={['#22C55E']}
             tintColor="#22C55E"
           />
@@ -674,6 +814,45 @@ const SavingsGoalsScreen: React.FC = () => {
                   ))}
               </View>
             )}
+
+            {/* Investment Overview */}
+            {invStats && invStats.activeCount > 0 && (
+              <View style={[styles.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+                <View style={styles.previewHeader}>
+                  <Text style={[styles.cardTitle, { color: textPri }]}>Investments</Text>
+                  <TouchableOpacity onPress={() => setTab('investments')}>
+                    <Text style={styles.seeAll}>See all →</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.invOverviewGrid}>
+                  <View style={[styles.invOverviewCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
+                    <Text style={[styles.invOverviewLabel, { color: textSec }]}>Invested</Text>
+                    <Text style={[styles.invOverviewVal, { color: colors.primary }]}>
+                      {formatCurrency(invStats.totalInvested)}
+                    </Text>
+                  </View>
+                  <View style={[styles.invOverviewCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
+                    <Text style={[styles.invOverviewLabel, { color: textSec }]}>Maturity</Text>
+                    <Text style={[styles.invOverviewVal, { color: textPri }]}>
+                      {formatCurrency(invStats.totalMaturityValue)}
+                    </Text>
+                  </View>
+                  <View style={[styles.invOverviewCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
+                    <Text style={[styles.invOverviewLabel, { color: textSec }]}>Profit</Text>
+                    <Text style={[styles.invOverviewVal, { color: '#22C55E' }]}>
+                      +{formatCurrency(invStats.expectedProfit)}
+                    </Text>
+                  </View>
+                  <View style={[styles.invOverviewCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
+                    <Text style={[styles.invOverviewLabel, { color: textSec }]}>Active</Text>
+                    <Text style={[styles.invOverviewVal, { color: textPri }]}>
+                      {invStats.activeCount} plans
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </>
         )}
 
@@ -754,14 +933,59 @@ const SavingsGoalsScreen: React.FC = () => {
             )}
           </>
         )}
+
+        {/* ── INVESTMENTS TAB ── */}
+        {tab === 'investments' && (
+          <>
+            {(investments as any[]).length === 0 ? (
+              <View style={styles.emptyWrap}>
+                <Icon name="trending-up-outline" size={40} color={textSec} />
+                <Text style={[styles.emptyTitle, { color: textPri }]}>
+                  No investments yet
+                </Text>
+                <Text style={[styles.emptyHint, { color: textSec }]}>
+                  Tap + to create your first investment
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.goalsList}>
+                {(investments as any[]).map((inv: any) => (
+                  <InvestmentCard
+                    key={inv._id}
+                    inv={inv}
+                    onPress={() =>
+                      (navigation as any).navigate('InvestmentDetails', {
+                        investmentId: inv._id,
+                      })
+                    }
+                    onDelete={() => handleDeleteInvestment(inv)}
+                    isDark={isDark}
+                  />
+                ))}
+                <Text
+                  style={[
+                    styles.hint,
+                    { color: isDark ? '#475569' : '#CBD5E1' },
+                  ]}
+                >
+                  Long press to delete
+                </Text>
+              </View>
+            )}
+          </>
+        )}
       </ScrollView>
 
       {/* FAB */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: '#22C55E' }]}
-        onPress={() =>
-          (navigation as any).navigate('AddSavingsGoal', { mode: 'create' })
-        }
+        onPress={() => {
+          if (tab === 'investments') {
+            (navigation as any).navigate('AddInvestment', { mode: 'create' });
+          } else {
+            (navigation as any).navigate('AddSavingsGoal', { mode: 'create' });
+          }
+        }}
         activeOpacity={0.8}
       >
         <Icon name="add" size={22} color="#FFFFFF" />
@@ -1104,6 +1328,11 @@ const styles = StyleSheet.create({
   },
   seeAll: { fontSize: 12, fontWeight: '600', color: '#22C55E' },
 
+  invOverviewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  invOverviewCard: { width: '48%' as any, borderRadius: 10, padding: 10 },
+  invOverviewLabel: { fontSize: 10, marginBottom: 3 },
+  invOverviewVal: { fontSize: 14, fontWeight: '700' },
+
   filterBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
@@ -1159,6 +1388,9 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', borderRadius: 2 },
   progressAmt: { fontSize: 10 },
   progressPct: { fontSize: 10, fontWeight: '700' },
+
+  invTypeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  invTypeBadgeText: { fontSize: 10, fontWeight: '700' },
 
   emptyWrap: { alignItems: 'center', paddingVertical: 50, gap: 8 },
   emptyTitle: { fontSize: 14, fontWeight: '600' },

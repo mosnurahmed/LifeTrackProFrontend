@@ -215,6 +215,11 @@ export const useToggleItem = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: bazarKeys.list(variables.listId) });
       queryClient.invalidateQueries({ queryKey: bazarKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: bazarKeys.stats() });
+      // Sync: bazar purchase creates/updates expense — refresh expense + budget + savings queries
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      queryClient.invalidateQueries({ queryKey: ['savings'] });
     },
     onError: (error: any) => {
       Toast.show({

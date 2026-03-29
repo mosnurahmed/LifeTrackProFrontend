@@ -18,8 +18,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../../../hooks/useTheme';
 import { useIncomes, useDeleteIncome, useIncomeStats } from '../../../hooks/api/useIncome';
-import { EmptyState, ErrorState, AppHeader, useConfirm } from '../../../components/common';
-import { SkeletonList } from '../../../components/common/Loading';
+import { EmptyState, ErrorState, AppHeader, useConfirm, useGuide } from '../../../components/common';
+import { ExpenseListSkeleton } from '../../../components/common/Loading/ScreenSkeletons';
 import { formatCurrency } from '../../../utils/formatters';
 
 const MONTH_NAMES = [
@@ -53,6 +53,7 @@ const IncomeScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, textStyles, spacing, borderRadius, shadows } = useTheme();
   const { confirm } = useConfirm();
+  const { GuideButton, GuideView } = useGuide('income');
 
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
@@ -272,7 +273,7 @@ const IncomeScreen: React.FC = () => {
     return (
       <View style={styles.container}>
         <AppHeader title="Income" showDrawer />
-        <SkeletonList count={6} />
+        <ExpenseListSkeleton />
       </View>
     );
   }
@@ -292,12 +293,15 @@ const IncomeScreen: React.FC = () => {
         title="Income"
         showDrawer
         right={
-          <TouchableOpacity
-            style={styles.statsBtn}
-            onPress={() => (navigation as any).navigate('IncomeStats')}
-          >
-            <Icon name="stats-chart-outline" size={22} color={colors.success} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <GuideButton color={colors.text.primary} />
+            <TouchableOpacity
+              style={styles.statsBtn}
+              onPress={() => (navigation as any).navigate('IncomeStats')}
+            >
+              <Icon name="stats-chart-outline" size={22} color={colors.success} />
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -340,6 +344,7 @@ const IncomeScreen: React.FC = () => {
       >
         <Icon name="add" size={22} color="#FFFFFF" />
       </TouchableOpacity>
+      <GuideView />
     </View>
   );
 };

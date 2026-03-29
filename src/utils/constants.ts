@@ -5,7 +5,7 @@
  */
 
 // API Configuration
-const LOCAL_IP = '192.168.2.156'; // ← তোমার PC-র local IP দাও
+const LOCAL_IP = '192.168.1.6'; // ← তোমার PC-র local IP দাও
 // `http://${LOCAL_IP}:5000`
 
 export const API_BASE_URL = __DEV__

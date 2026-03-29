@@ -12,6 +12,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
 import { useConfirm } from '../../../components/common/ConfirmModal';
+import { useGuide } from '../../../components/common';
 import {
   useNote, useCreateNote, useUpdateNote, useDeleteNote,
   useTogglePin, useToggleArchive,
@@ -35,6 +36,7 @@ const NoteEditorScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { confirm } = useConfirm();
+  const { GuideButton, GuideView } = useGuide('noteEditor');
   const primary = colors.primary;
 
   const { mode, noteId } = (route.params as any) || {};
@@ -113,6 +115,7 @@ const NoteEditorScreen: React.FC = () => {
         </TouchableOpacity>
 
         <View style={s.headerActions}>
+          <GuideButton color={textPri} />
           <TouchableOpacity
             style={[s.actionBtn, isPinned && { backgroundColor: `${primary}15` }]}
             onPress={() => { if (isEdit) { pinMutation.mutate(noteId); setIsPinned(p => !p); } else setIsPinned(p => !p); setIsDirty(true); }}
@@ -277,6 +280,7 @@ const NoteEditorScreen: React.FC = () => {
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
+      <GuideView />
     </KeyboardAvoidingView>
   );
 };

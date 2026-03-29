@@ -10,8 +10,8 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../../hooks/useTheme';
 import { useCategories, useDeleteCategory } from '../../../hooks/api/useCategories';
-import { EmptyState, ErrorState, AppHeader } from '../../../components/common';
-import { SkeletonList } from '../../../components/common/Loading';
+import { EmptyState, ErrorState, AppHeader, useGuide } from '../../../components/common';
+import { CategoriesSkeleton } from '../../../components/common/Loading/ScreenSkeletons';
 import { useConfirm } from '../../../components/common/ConfirmModal';
 import { formatCurrency } from '../../../utils/formatters';
 
@@ -27,6 +27,7 @@ const CategoriesScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const { confirm } = useConfirm();
+  const { GuideButton, GuideView } = useGuide('categories');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
 
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
@@ -56,7 +57,7 @@ const CategoriesScreen: React.FC = () => {
   if (isLoading) return (
     <View style={[st.container, { backgroundColor: colors.background }]}>
       <AppHeader title="Categories" />
-      <SkeletonList count={8} />
+      <CategoriesSkeleton />
     </View>
   );
 

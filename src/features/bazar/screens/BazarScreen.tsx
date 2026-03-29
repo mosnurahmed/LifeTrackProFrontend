@@ -11,8 +11,8 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../../hooks/useTheme';
 import { useBazarLists, useDeleteList } from '../../../hooks/api/useBazar';
-import { AppHeader, useConfirm } from '../../../components/common';
-import { SkeletonList } from '../../../components/common/Loading';
+import { AppHeader, useConfirm, useGuide } from '../../../components/common';
+import { BazarSkeleton } from '../../../components/common/Loading/ScreenSkeletons';
 import { formatCurrency } from '../../../utils/formatters';
 
 // ─── List Card ────────────────────────────────────────────────────────────────
@@ -23,7 +23,12 @@ const ListCard = ({
   item: any; onPress: () => void; onLongPress: () => void; colors: any; isDark: boolean;
 }) => {
   const pct = Math.min(item.completionPercentage ?? 0, 100);
-  const isOver = item.totalBudget && item.totalActualCost > item.totalBudget;
+  const spent = item.totalActualCost > 0
+    ? item.totalActualCost
+    : (item.items || [])
+        .filter((i: any) => i.isPurchased)
+        .reduce((s: number, i: any) => s + (i.actualPrice || 0), 0);
+  const isOver = item.totalBudget && spent > item.totalBudget;
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
   const borderC = isDark ? '#334155' : '#F1F5F9';
@@ -66,7 +71,7 @@ const ListCard = ({
             Budget: <Text style={{ color: textPri, fontWeight: '700' }}>{formatCurrency(item.totalBudget)}</Text>
           </Text>
           <Text style={[styles.budgetText, { color: textSec }]}>
-            Spent: <Text style={{ color: isOver ? '#C75050' : textPri, fontWeight: '700' }}>{formatCurrency(item.totalActualCost)}</Text>
+            Spent: <Text style={{ color: isOver ? '#C75050' : textPri, fontWeight: '700' }}>{formatCurrency(spent)}</Text>
           </Text>
         </View>
       ) : item.totalEstimatedCost > 0 ? (
@@ -84,6 +89,7 @@ const BazarScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const { actionSheet, confirm } = useConfirm();
+  const { GuideButton, GuideView } = useGuide('bazar');
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
 
   const { data: listsData, isLoading, refetch, isRefetching } = useBazarLists();
@@ -134,7 +140,7 @@ const BazarScreen: React.FC = () => {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <AppHeader title="Shopping Lists" showDrawer />
-        <SkeletonList count={4} />
+        <BazarSkeleton />
       </View>
     );
   }

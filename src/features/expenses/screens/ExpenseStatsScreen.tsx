@@ -21,7 +21,7 @@ import {
   useExpenseStats,
   useDailyExpenses,
 } from '../../../hooks/api/useExpenses';
-import { Spinner, ErrorState } from '../../../components/common';
+import { Spinner, ErrorState, useGuide } from '../../../components/common';
 import { formatCurrency, formatCompactNumber } from '../../../utils/formatters';
 
 const { width } = Dimensions.get('window');
@@ -41,6 +41,7 @@ const ExpenseStatsScreen: React.FC = () => {
   const { colors, textStyles, spacing, borderRadius, shadows, isDark } =
     useTheme();
   const insets = useSafeAreaInsets();
+  const { GuideButton, GuideView } = useGuide('expenseStats');
 
   const [selectedPeriodIdx, setSelectedPeriodIdx] = useState(0);
   const [selectedTab, setSelectedTab] = useState<Tab>('Overview');
@@ -175,7 +176,7 @@ const ExpenseStatsScreen: React.FC = () => {
           <Icon name="arrow-back" size={22} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Expense Statistics</Text>
-        <View style={{ width: 40 }} />
+        <GuideButton color={colors.text.primary} />
       </View>
 
       {/* Period Filter */}
@@ -526,6 +527,7 @@ const ExpenseStatsScreen: React.FC = () => {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      <GuideView />
     </View>
   );
 };

@@ -23,7 +23,10 @@ import { useIncomeStats } from '../../../hooks/api/useIncome';
 import { useTaskStats } from '../../../hooks/api/useTasks';
 import { useUnreadCount } from '../../../hooks/api/useNotifications';
 import { useSavingsStats } from '../../../hooks/api/useSavingsGoals';
+import { useLoanStats } from '../../../hooks/api/useLoans';
 import { formatCurrency, formatRelativeTime } from '../../../utils/formatters';
+import { DashboardSkeleton } from '../../../components/common/Loading/ScreenSkeletons';
+import { useGuide } from '../../../components/common';
 
 const { width } = Dimensions.get('window');
 
@@ -44,6 +47,7 @@ const DashboardScreen: React.FC = () => {
   const { colors, isDark } = useTheme();
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const { GuideButton, GuideView } = useGuide('dashboard');
 
   const now = new Date();
   const year = now.getFullYear();
@@ -53,10 +57,11 @@ const DashboardScreen: React.FC = () => {
 
   const { data: unreadCount = 0 } = useUnreadCount();
   const { data: savingsStats } = useSavingsStats(year, month);
-  const { data: expenseStats, isRefetching, refetch } = useExpenseStats();
+  const { data: expenseStats, isLoading: isExpenseStatsLoading, isRefetching, refetch } = useExpenseStats();
   const { data: incomeStats } = useIncomeStats();
   const { data: budgetData } = useBudgetSummary(year, month);
   const { data: taskStats } = useTaskStats();
+  const { data: loanStats } = useLoanStats();
   const { data: recentData } = useExpenses({
     limit: 5,
     sortBy: 'date',
@@ -87,6 +92,11 @@ const DashboardScreen: React.FC = () => {
   // useSavingsStats: select=(data)=>data?.data?.data → returns { totalBalance, initialBalance, ... }
   const totalSaved = savingsStats?.totalBalance ?? 0;
 
+  // Loan stats
+  const totalGivenRemaining = loanStats?.totalGivenRemaining ?? 0;
+  const totalTakenRemaining = loanStats?.totalTakenRemaining ?? 0;
+  const loanOverdue = loanStats?.overdue ?? 0;
+
   // categoryBreakdown fields: { categoryName, categoryIcon, categoryColor, total, percentage }
   const topCategories = expenseStats?.data?.categoryBreakdown ?? [];
   // useExpenses (no select): axios response → .data = API body → .data = expenses array
@@ -100,63 +110,18 @@ const DashboardScreen: React.FC = () => {
   const bgColor = colors.background;
 
   const ACTIONS: QuickAction[] = [
-    {
-      icon: 'add-circle-outline',
-      label: 'Add Expense',
-      color: '#EF4444',
-      nav: 'AddExpense',
-      params: { mode: 'create' },
-    },
-    {
-      icon: 'add-circle-outline',
-      label: 'Add Income',
-      color: '#10B981',
-      nav: 'AddIncome',
-      params: { mode: 'create' },
-    },
-    {
-      icon: 'pie-chart-outline',
-      label: 'Budget',
-      color: '#8B5CF6',
-      nav: 'Budget',
-    },
-    {
-      icon: 'trending-up-outline',
-      label: 'Savings',
-      color: '#F59E0B',
-      nav: 'Savings',
-    },
-    {
-      icon: 'checkmark-circle-outline',
-      label: 'Tasks',
-      color: '#06B6D4',
-      nav: 'Tasks',
-    },
-    {
-      icon: 'document-text-outline',
-      label: 'Notes',
-      color: '#F97316',
-      nav: 'Notes',
-    },
-    {
-      icon: 'chatbubbles-outline',
-      label: 'Chat',
-      color: '#A78BFA',
-      nav: 'Chat',
-    },
+    { icon: 'add-circle-outline', label: 'Add Expense', color: '#EF4444', nav: 'AddExpense', params: { mode: 'create' } },
+    { icon: 'add-circle-outline', label: 'Add Income', color: '#10B981', nav: 'AddIncome', params: { mode: 'create' } },
+    { icon: 'bar-chart-outline', label: 'Add Invest', color: '#8B5CF6', nav: 'AddInvestment' },
+    { icon: 'pie-chart-outline', label: 'Budget', color: '#8B5CF6', nav: 'Budget' },
+    { icon: 'wallet-outline', label: 'Savings', color: '#F59E0B', nav: 'Savings' },
+    { icon: 'receipt-outline', label: 'Loans', color: '#F97316', nav: 'Loans' },
+    { icon: 'checkmark-circle-outline', label: 'Tasks', color: '#06B6D4', nav: 'Tasks' },
+    { icon: 'document-text-outline', label: 'Notes', color: '#F97316', nav: 'Notes' },
+    { icon: 'chatbubbles-outline', label: 'Chat', color: '#A78BFA', nav: 'Chat' },
     { icon: 'cart-outline', label: 'Bazar', color: '#0EA5E9', nav: 'Bazar' },
-    {
-      icon: 'grid-outline',
-      label: 'Categories',
-      color: '#64748B',
-      nav: 'Categories',
-    },
-    {
-      icon: 'settings-outline',
-      label: 'Settings',
-      color: '#64748B',
-      nav: 'Settings',
-    },
+    { icon: 'grid-outline', label: 'Categories', color: '#64748B', nav: 'Categories' },
+    { icon: 'settings-outline', label: 'Settings', color: '#64748B', nav: 'Settings' },
   ];
 
   const greeting = () => {
@@ -169,6 +134,46 @@ const DashboardScreen: React.FC = () => {
   const goTo = (item: QuickAction) => {
     (navigation as any).navigate(item.nav, item.params ?? {});
   };
+
+  if (isExpenseStatsLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: bgColor }]}>
+        <View
+          style={[
+            styles.header,
+            {
+              paddingTop: insets.top + 10,
+              backgroundColor: surfaceC,
+              borderBottomColor: borderC,
+            },
+          ]}
+        >
+          <View style={styles.headerLeft}>
+            <View style={[styles.avatarRing, { borderColor: '#8B5CF640' }]}>
+              <View style={[styles.avatar, { backgroundColor: '#8B5CF6' }]}>
+                <Text style={styles.avatarLetter}>
+                  {(user?.name ?? 'U').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.headerUserInfo}>
+              <Text style={[styles.greeting, { color: textSec }]}>{greeting()}</Text>
+              <Text style={[styles.userName, { color: textPri }]} numberOfLines={1}>
+                {user?.name || 'User'}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.notifBtn, { backgroundColor: borderC }]}
+            onPress={() => (navigation as any).navigate('NotificationsList')}
+          >
+            <Icon name="notifications-outline" size={22} color={textPri} />
+          </TouchableOpacity>
+        </View>
+        <DashboardSkeleton />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
@@ -183,8 +188,12 @@ const DashboardScreen: React.FC = () => {
           },
         ]}
       >
-        {/* Left: avatar + name */}
-        <View style={styles.headerLeft}>
+        {/* Left: avatar + name → tap to edit profile */}
+        <TouchableOpacity
+          style={styles.headerLeft}
+          onPress={() => (navigation as any).navigate('EditProfile')}
+          activeOpacity={0.7}
+        >
           <View style={[styles.avatarRing, { borderColor: '#8B5CF640' }]}>
             <View style={[styles.avatar, { backgroundColor: '#8B5CF6' }]}>
               <Text style={styles.avatarLetter}>
@@ -198,22 +207,25 @@ const DashboardScreen: React.FC = () => {
               {user?.name || 'User'}
             </Text>
           </View>
-        </View>
-
-        {/* Right: notification bell + badge */}
-        <TouchableOpacity
-          style={[styles.notifBtn, { backgroundColor: borderC }]}
-          onPress={() => (navigation as any).navigate('NotificationsList')}
-        >
-          <Icon name="notifications-outline" size={22} color={textPri} />
-          {unreadCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </Text>
-            </View>
-          )}
         </TouchableOpacity>
+
+        {/* Right: guide + notification bell + badge */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <GuideButton color={textPri} />
+          <TouchableOpacity
+            style={[styles.notifBtn, { backgroundColor: borderC }]}
+            onPress={() => (navigation as any).navigate('NotificationsList')}
+          >
+            <Icon name="notifications-outline" size={22} color={textPri} />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -272,100 +284,117 @@ const DashboardScreen: React.FC = () => {
         </View>
         <View style={styles.row3}>
           <TouchableOpacity
-            style={[styles.overviewCard, { backgroundColor: surfaceC, borderColor: borderC }]}
+            style={[styles.summaryCard, { backgroundColor: surfaceC, borderColor: borderC }]}
             onPress={() => (navigation as any).navigate('Expenses')}
             activeOpacity={0.8}
           >
-            <View style={[styles.overviewIcon, { backgroundColor: '#EF444415' }]}>
-              <Icon name="trending-down" size={16} color="#EF4444" />
+            <View style={[styles.ovIcon, { backgroundColor: '#EF444415' }]}>
+              <Icon name="trending-down" size={15} color="#EF4444" />
             </View>
-            <Text style={[styles.overviewLabel, { color: textSec }]}>Expenses</Text>
-            <Text style={[styles.overviewAmount, { color: '#EF4444' }]} numberOfLines={1}>
+            <Text style={[styles.ovLabel, { color: textSec }]}>Expenses</Text>
+            <Text style={[styles.ovVal, { color: '#EF4444' }]} numberOfLines={1}>
               {formatCurrency(monthExpenses)}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.overviewCard, { backgroundColor: surfaceC, borderColor: borderC }]}
+            style={[styles.summaryCard, { backgroundColor: surfaceC, borderColor: borderC }]}
             onPress={() => (navigation as any).navigate('Income')}
             activeOpacity={0.8}
           >
-            <View style={[styles.overviewIcon, { backgroundColor: '#10B98115' }]}>
-              <Icon name="trending-up" size={16} color="#10B981" />
+            <View style={[styles.ovIcon, { backgroundColor: '#10B98115' }]}>
+              <Icon name="trending-up" size={15} color="#10B981" />
             </View>
-            <Text style={[styles.overviewLabel, { color: textSec }]}>Income</Text>
-            <Text style={[styles.overviewAmount, { color: '#10B981' }]} numberOfLines={1}>
+            <Text style={[styles.ovLabel, { color: textSec }]}>Income</Text>
+            <Text style={[styles.ovVal, { color: '#10B981' }]} numberOfLines={1}>
               {formatCurrency(monthIncome)}
             </Text>
           </TouchableOpacity>
 
-          <View style={[styles.overviewCard, { backgroundColor: surfaceC, borderColor: borderC }]}>
-            <View style={[styles.overviewIcon, { backgroundColor: net >= 0 ? '#6366F115' : '#EF444415' }]}>
-              <Icon name="analytics" size={16} color={net >= 0 ? '#6366F1' : '#EF4444'} />
+          <View style={[styles.summaryCard, { backgroundColor: surfaceC, borderColor: borderC }]}>
+            <View style={[styles.ovIcon, { backgroundColor: net >= 0 ? '#6366F115' : '#EF444415' }]}>
+              <Icon name="analytics" size={15} color={net >= 0 ? '#6366F1' : '#EF4444'} />
             </View>
-            <Text style={[styles.overviewLabel, { color: textSec }]}>Net</Text>
-            <Text style={[styles.overviewAmount, { color: net >= 0 ? '#6366F1' : '#EF4444' }]} numberOfLines={1}>
+            <Text style={[styles.ovLabel, { color: textSec }]}>Net</Text>
+            <Text style={[styles.ovVal, { color: net >= 0 ? '#6366F1' : '#EF4444' }]} numberOfLines={1}>
               {net >= 0 ? '+' : ''}{formatCurrency(net)}
             </Text>
           </View>
         </View>
 
-        {/* ── Overview (Budget · Tasks · Savings) ───────────────── */}
+        {/* ── Overview ──────────────────────────────────────────── */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionHeading, { color: textPri }]}>Overview</Text>
-          <Text style={[styles.sectionPeriod, { color: textSec }]}>Budget · Tasks · Savings</Text>
         </View>
-        <View style={styles.row3}>
+        <View style={styles.ovGrid}>
+          {/* Budget */}
           <TouchableOpacity
-            style={[styles.summaryCard, { backgroundColor: surfaceC, borderColor: borderC }]}
+            style={[styles.ovCard, { backgroundColor: surfaceC, borderColor: borderC }]}
             onPress={() => (navigation as any).navigate('Budget')}
             activeOpacity={0.8}
           >
-            <View style={[styles.overviewIcon, { backgroundColor: '#8B5CF615' }]}>
-              <Icon name="pie-chart" size={16} color="#8B5CF6" />
+            <View style={[styles.ovIcon, { backgroundColor: '#8B5CF615' }]}>
+              <Icon name="pie-chart" size={15} color="#8B5CF6" />
             </View>
-            <Text style={[styles.overviewLabel, { color: textSec }]}>Budget</Text>
+            <Text style={[styles.ovLabel, { color: textSec }]}>Budget</Text>
             {totalBudget > 0 ? (
               <>
-                <View style={[styles.progressTrack, { backgroundColor: borderC, marginVertical: 4 }]}>
-                  <View style={[styles.progressFill, { width: `${budgetPct}%` as any, backgroundColor: budgetOver ? '#EF4444' : '#8B5CF6' }]} />
+                <Text style={[styles.ovVal, { color: budgetOver ? '#EF4444' : '#8B5CF6' }]}>{budgetPct.toFixed(0)}%</Text>
+                <View style={[styles.ovBar, { backgroundColor: borderC }]}>
+                  <View style={[styles.ovBarFill, { width: `${budgetPct}%` as any, backgroundColor: budgetOver ? '#EF4444' : '#8B5CF6' }]} />
                 </View>
-                <Text style={[styles.summaryVal, { color: budgetOver ? '#EF4444' : '#8B5CF6' }]}>
-                  {budgetPct.toFixed(0)}%
-                </Text>
               </>
             ) : (
-              <Text style={[styles.summaryVal, { color: textSec }]}>—</Text>
+              <Text style={[styles.ovVal, { color: textSec }]}>—</Text>
             )}
           </TouchableOpacity>
 
+          {/* Tasks */}
           <TouchableOpacity
-            style={[styles.summaryCard, { backgroundColor: surfaceC, borderColor: borderC }]}
+            style={[styles.ovCard, { backgroundColor: surfaceC, borderColor: borderC }]}
             onPress={() => (navigation as any).navigate('Tasks')}
             activeOpacity={0.8}
           >
-            <View style={[styles.overviewIcon, { backgroundColor: '#06B6D415' }]}>
-              <Icon name="checkmark-circle" size={16} color="#06B6D4" />
+            <View style={[styles.ovIcon, { backgroundColor: '#06B6D415' }]}>
+              <Icon name="checkmark-circle" size={15} color="#06B6D4" />
             </View>
-            <Text style={[styles.overviewLabel, { color: textSec }]}>Tasks</Text>
-            <Text style={[styles.summaryVal, { color: '#06B6D4' }]}>{pendingTasks}</Text>
-            <Text style={[styles.summarySubVal, { color: textSec }]} numberOfLines={1}>
-              {completedTasks} done{overdueTasks > 0 ? ` · ${overdueTasks} late` : ''}
-            </Text>
+            <Text style={[styles.ovLabel, { color: textSec }]}>Tasks</Text>
+            <Text style={[styles.ovVal, { color: '#06B6D4' }]}>{pendingTasks} pending</Text>
+            <Text style={[styles.ovSub, { color: textSec }]}>{completedTasks} done{overdueTasks > 0 ? ` · ${overdueTasks} late` : ''}</Text>
           </TouchableOpacity>
 
+          {/* Savings */}
           <TouchableOpacity
-            style={[styles.summaryCard, { backgroundColor: surfaceC, borderColor: borderC }]}
+            style={[styles.ovCard, { backgroundColor: surfaceC, borderColor: borderC }]}
             onPress={() => (navigation as any).navigate('Savings')}
             activeOpacity={0.8}
           >
-            <View style={[styles.overviewIcon, { backgroundColor: '#F59E0B15' }]}>
-              <Icon name="wallet" size={16} color="#F59E0B" />
+            <View style={[styles.ovIcon, { backgroundColor: '#F59E0B15' }]}>
+              <Icon name="wallet" size={15} color="#F59E0B" />
             </View>
-            <Text style={[styles.overviewLabel, { color: textSec }]}>Savings</Text>
-            <Text style={[styles.summaryVal, { color: '#F59E0B' }]} numberOfLines={1}>
-              {formatCurrency(totalSaved)}
-            </Text>
+            <Text style={[styles.ovLabel, { color: textSec }]}>Savings</Text>
+            <Text style={[styles.ovVal, { color: '#F59E0B' }]} numberOfLines={1}>{formatCurrency(totalSaved)}</Text>
+          </TouchableOpacity>
+
+          {/* Loans */}
+          <TouchableOpacity
+            style={[styles.ovCard, { backgroundColor: surfaceC, borderColor: borderC }]}
+            onPress={() => (navigation as any).navigate('Loans')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.ovIcon, { backgroundColor: '#F9731615' }]}>
+              <Icon name="receipt" size={15} color="#F97316" />
+            </View>
+            <Text style={[styles.ovLabel, { color: textSec }]}>Loans</Text>
+            {(totalGivenRemaining > 0 || totalTakenRemaining > 0) ? (
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {totalGivenRemaining > 0 && <Text style={[styles.ovSub, { color: '#10B981', fontWeight: '600' }]}>↑{formatCurrency(totalGivenRemaining)}</Text>}
+                {totalTakenRemaining > 0 && <Text style={[styles.ovSub, { color: '#EF4444', fontWeight: '600' }]}>↓{formatCurrency(totalTakenRemaining)}</Text>}
+              </View>
+            ) : (
+              <Text style={[styles.ovVal, { color: textSec }]}>—</Text>
+            )}
+            {loanOverdue > 0 && <Text style={[styles.ovSub, { color: '#EF4444', fontWeight: '700' }]}>{loanOverdue} overdue</Text>}
           </TouchableOpacity>
         </View>
 
@@ -526,6 +555,7 @@ const DashboardScreen: React.FC = () => {
           </View>
         )}
       </ScrollView>
+      <GuideView />
     </View>
   );
 };
@@ -614,40 +644,38 @@ const styles = StyleSheet.create({
   sectionPeriod:  { fontSize: 12 },
 
   // 3-col overview
-  row3: {
+  // Monthly Summary 3-column row
+  row3: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginBottom: 12 },
+  summaryCard: { flex: 1, borderRadius: 14, borderWidth: 1, padding: 12, gap: 3 },
+
+  // Overview 2x2 grid
+  ovGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: 16,
-    gap: 10,
-    marginBottom: 12,
+    gap: 8,
+    marginBottom: 16,
   },
-  overviewCard: {
-    flex: 1,
-    borderRadius: 14,
+  ovCard: {
+    width: '48%' as any,
+    borderRadius: 12,
     borderWidth: 1,
-    padding: 12,
-    gap: 4,
+    padding: 10,
+    gap: 1,
   },
-  overviewIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  ovIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 3,
   },
-  overviewLabel: { fontSize: 11, fontWeight: '500' },
-  overviewAmount: { fontSize: 14, fontWeight: '700' },
-
-  // Summary row (Budget / Tasks / Savings)
-  summaryCard: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 12,
-    gap: 3,
-  },
-  summaryVal:    { fontSize: 14, fontWeight: '700' },
-  summarySubVal: { fontSize: 10 },
+  ovLabel: { fontSize: 10, fontWeight: '500' },
+  ovVal: { fontSize: 13, fontWeight: '700' },
+  ovSub: { fontSize: 9 },
+  ovBar: { height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 4 },
+  ovBarFill: { height: '100%', borderRadius: 2 },
 
   // Savings card
   savingsCard: {

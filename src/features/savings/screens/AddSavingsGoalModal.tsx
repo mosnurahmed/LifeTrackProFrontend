@@ -25,7 +25,7 @@ import {
   useUpdateSavingsGoal,
   useSavingsGoal,
 } from '../../../hooks/api/useSavingsGoals';
-import { Spinner } from '../../../components/common';
+import { Spinner, useGuide } from '../../../components/common';
 import { savingsGoalSchema } from '../../../utils/validation/schemas';
 
 const ICONS = [
@@ -52,6 +52,7 @@ const AddSavingsGoalModal: React.FC = () => {
   const route = useRoute();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { GuideButton, GuideView } = useGuide('addSavingsGoal');
 
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
@@ -139,7 +140,7 @@ const AddSavingsGoalModal: React.FC = () => {
         <Text style={[s.headerTitle, { color: textPri }]}>
           {isEditMode ? 'Edit Goal' : 'New Goal'}
         </Text>
-        <View style={{ width: 36 }} />
+        <GuideButton color={textPri} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 24 }]}>
@@ -321,6 +322,7 @@ const AddSavingsGoalModal: React.FC = () => {
               onDateChange={d => setValue('targetDate', d)}
               mode="date"
               minimumDate={new Date()}
+              theme={isDark ? 'dark' : 'light'}
             />
           </View>
         </View>
@@ -357,6 +359,7 @@ const AddSavingsGoalModal: React.FC = () => {
           </View>
         </View>
       </Modal>
+      <GuideView />
     </View>
   );
 };

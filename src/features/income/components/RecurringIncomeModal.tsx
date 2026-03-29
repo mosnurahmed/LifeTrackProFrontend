@@ -28,7 +28,7 @@ const RecurringIncomeModal: React.FC<RecurringIncomeModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const { colors, textStyles, spacing, borderRadius } = useTheme();
+  const { colors, textStyles, spacing, borderRadius, isDark } = useTheme();
 
   // ✅ Fixed useState declarations
   const [isRecurring, setIsRecurring] = useState<boolean>(false);
@@ -222,6 +222,7 @@ const RecurringIncomeModal: React.FC<RecurringIncomeModalProps> = ({
               onDateChange={setEndDate}
               mode="date"
               minimumDate={new Date()}
+              theme={isDark ? 'dark' : 'light'}
             />
             <View style={styles.datePickerFooter}>
               <Button

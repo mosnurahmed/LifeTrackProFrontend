@@ -41,7 +41,7 @@ const AdvancedFiltersModal: React.FC<AdvancedFiltersModalProps> = ({
   categories,
   currentFilters,
 }) => {
-  const { colors, textStyles, spacing, borderRadius, shadows } = useTheme();
+  const { colors, textStyles, spacing, borderRadius, shadows, isDark } = useTheme();
 
   const [selectedCategory, setSelectedCategory] = useState(
     currentFilters.categoryId,
@@ -445,6 +445,7 @@ const AdvancedFiltersModal: React.FC<AdvancedFiltersModalProps> = ({
                   onDateChange={setStartDate}
                   mode="date"
                   maximumDate={endDate || new Date()}
+                  theme={isDark ? 'dark' : 'light'}
                 />
               </View>
             </View>
@@ -468,6 +469,7 @@ const AdvancedFiltersModal: React.FC<AdvancedFiltersModalProps> = ({
                   mode="date"
                   minimumDate={startDate || undefined}
                   maximumDate={new Date()}
+                  theme={isDark ? 'dark' : 'light'}
                 />
               </View>
             </View>

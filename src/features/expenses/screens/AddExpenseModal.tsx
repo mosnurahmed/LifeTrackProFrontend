@@ -32,6 +32,7 @@ import {
   Card,
   Spinner,
   SafeScreen,
+  useGuide,
 } from '../../../components/common';
 import { expenseSchema } from '../../../utils/validation/schemas';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
@@ -41,7 +42,8 @@ import { launchImageLibrary } from 'react-native-image-picker';
 const AddExpenseModal: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { colors, textStyles, spacing, borderRadius } = useTheme();
+  const { colors, textStyles, spacing, borderRadius, isDark } = useTheme();
+  const { GuideButton, GuideView } = useGuide('addExpense');
 
   const { mode, expenseId } = (route.params as any) || { mode: 'create' };
   const isEditMode = mode === 'edit';
@@ -169,7 +171,7 @@ const AddExpenseModal: React.FC = () => {
           <Text style={styles.title}>
             {isEditMode ? 'Edit Expense' : 'Add Expense'}
           </Text>
-          <View style={{ width: 28 }} />
+          <GuideButton color={colors.text.primary} />
         </View>
 
         <ScrollView style={styles.content}>
@@ -485,6 +487,7 @@ const AddExpenseModal: React.FC = () => {
                 onDateChange={date => setValue('date', date)}
                 mode="date"
                 maximumDate={new Date()}
+                theme={isDark ? 'dark' : 'light'}
               />
             </View>
           </View>
@@ -558,6 +561,7 @@ const AddExpenseModal: React.FC = () => {
             </View>
           </View>
         </Modal>
+        <GuideView />
       </View>
     </SafeScreen>
   );

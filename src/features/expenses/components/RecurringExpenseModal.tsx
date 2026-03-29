@@ -28,7 +28,7 @@ const RecurringExpenseModal: React.FC<RecurringExpenseModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const { colors, textStyles, spacing, borderRadius, shadows } = useTheme();
+  const { colors, textStyles, spacing, borderRadius, shadows, isDark } = useTheme();
 
   const [frequency, setFrequency] = useState<
     'daily' | 'weekly' | 'monthly' | 'yearly'
@@ -180,6 +180,7 @@ const RecurringExpenseModal: React.FC<RecurringExpenseModalProps> = ({
                   onDateChange={setEndDate}
                   mode="date"
                   minimumDate={new Date()}
+                  theme={isDark ? 'dark' : 'light'}
                 />
               </View>
             </View>

@@ -64,12 +64,19 @@ const LoginScreen: React.FC = () => {
         text2: `Hi ${user.name}`,
       });
     } catch (error: any) {
-      console.log('❌ Login Error:', error.response?.data || error.message);
+      const errMsg = error.response?.data?.error || '';
+
+      // If account not verified, go to OTP screen
+      if (errMsg.includes('not verified')) {
+        Toast.show({ type: 'info', text1: 'Verify Your Email', text2: 'A new code has been sent' });
+        (navigation as any).navigate('VerifyOTP', { email: data.email, purpose: 'verification' });
+        return;
+      }
 
       Toast.show({
         type: 'error',
         text1: 'Login Failed',
-        text2: error.response?.data?.error || 'Invalid credentials',
+        text2: errMsg || 'Invalid credentials',
       });
     } finally {
       setIsLoading(false);
@@ -133,6 +140,13 @@ const LoginScreen: React.FC = () => {
           >
             Login
           </Button>
+
+          <TouchableOpacity
+            style={{ alignSelf: 'center', marginTop: spacing.md }}
+            onPress={() => (navigation as any).navigate('ForgotPassword')}
+          >
+            <Text style={styles.link}>Forgot Password?</Text>
+          </TouchableOpacity>
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don't have an account? </Text>

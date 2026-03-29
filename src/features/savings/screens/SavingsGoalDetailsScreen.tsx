@@ -25,7 +25,7 @@ import {
   useContributions,
   useAddContribution,
 } from '../../../hooks/api/useSavingsGoals';
-import { Spinner, ErrorState } from '../../../components/common';
+import { Spinner, ErrorState, useGuide } from '../../../components/common';
 import {
   formatCurrency,
   formatDate,
@@ -43,6 +43,7 @@ const SavingsGoalDetailsScreen: React.FC = () => {
   const route = useRoute();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { GuideButton, GuideView } = useGuide('savingsGoalDetails');
 
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
@@ -100,6 +101,7 @@ const SavingsGoalDetailsScreen: React.FC = () => {
             <Icon name="create-outline" size={20} color={goal.color} />
           </TouchableOpacity>
         ) : <View style={{ width: 36 }} />}
+        <GuideButton color={textPri} />
       </View>
 
       <ScrollView
@@ -283,6 +285,7 @@ const SavingsGoalDetailsScreen: React.FC = () => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <GuideView />
     </View>
   );
 };

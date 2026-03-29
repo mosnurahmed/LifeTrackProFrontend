@@ -13,7 +13,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
 import { useCreateCategory, useUpdateCategory, useCategory, useCategories } from '../../../hooks/api/useCategories';
-import { Spinner } from '../../../components/common';
+import { Spinner, useGuide } from '../../../components/common';
 import { categorySchema } from '../../../utils/validation/schemas';
 
 const CATEGORY_ICONS = [
@@ -53,6 +53,7 @@ const AddCategoryModal: React.FC = () => {
   const route = useRoute();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { GuideButton, GuideView } = useGuide('addCategory');
 
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
@@ -111,7 +112,7 @@ const AddCategoryModal: React.FC = () => {
           <Icon name="close" size={22} color={textPri} />
         </TouchableOpacity>
         <Text style={[s.headerTitle, { color: textPri }]}>{isEdit ? 'Edit Category' : 'New Category'}</Text>
-        <View style={{ width: 36 }} />
+        <GuideButton color={textPri} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 80 }]}>
@@ -238,6 +239,7 @@ const AddCategoryModal: React.FC = () => {
           </View>
         </TouchableOpacity>
       </Modal>
+      <GuideView />
     </View>
   );
 };

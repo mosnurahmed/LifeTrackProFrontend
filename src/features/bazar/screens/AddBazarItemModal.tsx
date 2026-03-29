@@ -4,7 +4,12 @@
 
 import React, { useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useForm, Controller } from 'react-hook-form';
@@ -12,18 +17,34 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
-import { useAddItem, useUpdateItem, useBazarList } from '../../../hooks/api/useBazar';
-import { Button, Input, SafeScreen, Spinner } from '../../../components/common';
+import {
+  useAddItem,
+  useUpdateItem,
+  useBazarList,
+} from '../../../hooks/api/useBazar';
+import { Button, Input, SafeScreen, Spinner, useGuide } from '../../../components/common';
 import { bazarItemSchema } from '../../../utils/validation/schemas';
 
 const UNITS = ['kg', 'g', 'L', 'mL', 'pcs', 'dozen', 'pack', 'box', 'bag'];
-const CATEGORIES = ['Vegetables', 'Fruits', 'Meat', 'Fish', 'Dairy', 'Bakery', 'Snacks', 'Beverages', 'Household', 'Other'];
+const CATEGORIES = [
+  'Vegetables',
+  'Fruits',
+  'Meat',
+  'Fish',
+  'Dairy',
+  'Bakery',
+  'Snacks',
+  'Beverages',
+  'Household',
+  'Other',
+];
 
 const AddBazarItemModal: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { GuideButton, GuideView } = useGuide('addBazarItem');
 
   const { listId, itemId, mode } = (route.params as any) || { mode: 'create' };
   const isEditMode = mode === 'edit';
@@ -41,12 +62,20 @@ const AddBazarItemModal: React.FC = () => {
   const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
 
   const {
-    control, handleSubmit, setValue, watch, formState: { errors },
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
   } = useForm({
     resolver: yupResolver(bazarItemSchema),
     defaultValues: {
-      name: '', quantity: 1, unit: 'pcs',
-      estimatedPrice: undefined, category: '', notes: '',
+      name: '',
+      quantity: 1,
+      unit: 'kg',
+      actualPrice: undefined,
+      category: '',
+      notes: '',
     },
   });
 
@@ -55,7 +84,7 @@ const AddBazarItemModal: React.FC = () => {
       setValue('name', item.name);
       setValue('quantity', item.quantity);
       setValue('unit', item.unit);
-      setValue('estimatedPrice', item.estimatedPrice);
+      setValue('actualPrice', item.actualPrice);
       setValue('category', item.category || '');
       setValue('notes', item.notes || '');
     }
@@ -65,7 +94,10 @@ const AddBazarItemModal: React.FC = () => {
     const formatted = {
       ...data,
       quantity: parseFloat(data.quantity),
-      estimatedPrice: data.estimatedPrice ? parseFloat(data.estimatedPrice) : undefined,
+      actualPrice: data.actualPrice
+        ? parseFloat(data.actualPrice)
+        : undefined,
+      category: data.category || undefined,
     };
     if (isEditMode) {
       await updateMutation.mutateAsync({ listId, itemId, data: formatted });
@@ -78,7 +110,9 @@ const AddBazarItemModal: React.FC = () => {
   if (listLoading && isEditMode) {
     return (
       <SafeScreen>
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View
+          style={[styles.container, { backgroundColor: colors.background }]}
+        >
           <Spinner text="Loading..." />
         </View>
       </SafeScreen>
@@ -96,7 +130,7 @@ const AddBazarItemModal: React.FC = () => {
           <Text style={[styles.headerTitle, { color: textPri }]}>
             {isEditMode ? 'Edit Item' : 'Add Item'}
           </Text>
-          <View style={{ width: 22 }} />
+          <GuideButton color={textPri} />
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -118,23 +152,54 @@ const AddBazarItemModal: React.FC = () => {
 
           {/* Quantity + Unit */}
           <View style={styles.qtySection}>
-            <Text style={[styles.label, { color: textSec }]}>Quantity & Unit *</Text>
+            <Text style={[styles.label, { color: textSec }]}>
+              Quantity & Unit *
+            </Text>
             <View style={styles.qtyRow}>
               <Controller
                 control={control}
                 name="quantity"
                 render={({ field: { onChange, value } }) => (
-                  <View style={[styles.qtyInput, { borderColor: borderC, backgroundColor: surfaceC }]}>
+                  <View
+                    style={[
+                      styles.qtyInput,
+                      { borderColor: borderC, backgroundColor: surfaceC },
+                    ]}
+                  >
                     <TouchableOpacity
                       style={styles.qtyBtn}
-                      onPress={() => { const v = Math.max((parseFloat(value?.toString() || '1') - 1), 0.5); onChange(v); }}
+                      onPress={() => {
+                        const v = Math.max(
+                          parseFloat(value?.toString() || '1') - 1,
+                          0.5,
+                        );
+                        onChange(v);
+                      }}
                     >
                       <Icon name="remove" size={16} color={textSec} />
                     </TouchableOpacity>
-                    <Text style={[styles.qtyVal, { color: textPri }]}>{value}</Text>
+                    <TextInput
+                      style={[styles.qtyVal, { color: textPri }]}
+                      value={String(value)}
+                      onChangeText={t => {
+                        const n = parseFloat(t);
+                        if (!isNaN(n) && n > 0) onChange(n);
+                        else if (t === '' || t === '0') onChange(t as any);
+                      }}
+                      onBlur={() => {
+                        const n = parseFloat(String(value));
+                        if (isNaN(n) || n <= 0) onChange(1);
+                      }}
+                      keyboardType="numeric"
+                      selectTextOnFocus
+                      textAlign="center"
+                    />
                     <TouchableOpacity
                       style={styles.qtyBtn}
-                      onPress={() => { const v = parseFloat(value?.toString() || '1') + 1; onChange(v); }}
+                      onPress={() => {
+                        const v = parseFloat(value?.toString() || '1') + 1;
+                        onChange(v);
+                      }}
                     >
                       <Icon name="add" size={16} color={textPri} />
                     </TouchableOpacity>
@@ -145,16 +210,32 @@ const AddBazarItemModal: React.FC = () => {
                 control={control}
                 name="unit"
                 render={({ field: { onChange, value } }) => (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.unitRow} style={{ flex: 1 }}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.unitRow}
+                    style={{ flex: 1 }}
+                  >
                     {UNITS.map(u => (
                       <TouchableOpacity
                         key={u}
-                        style={[styles.chip, { borderColor: borderC, backgroundColor: surfaceC },
-                          value === u && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                        style={[
+                          styles.chip,
+                          { borderColor: borderC, backgroundColor: surfaceC },
+                          value === u && {
+                            backgroundColor: colors.primary,
+                            borderColor: colors.primary,
+                          },
+                        ]}
                         onPress={() => onChange(u)}
                       >
-                        <Text style={[styles.chipText, { color: textSec },
-                          value === u && { color: '#FFF', fontWeight: '700' }]}>
+                        <Text
+                          style={[
+                            styles.chipText,
+                            { color: textSec },
+                            value === u && { color: '#FFF', fontWeight: '700' },
+                          ]}
+                        >
                           {u}
                         </Text>
                       </TouchableOpacity>
@@ -163,20 +244,24 @@ const AddBazarItemModal: React.FC = () => {
                 )}
               />
             </View>
-            {errors.quantity && <Text style={styles.errorText}>{errors.quantity.message}</Text>}
+            {errors.quantity && (
+              <Text style={styles.errorText}>{errors.quantity.message}</Text>
+            )}
           </View>
 
-          {/* Estimated Price */}
+          {/* Price */}
           <Controller
             control={control}
-            name="estimatedPrice"
+            name="actualPrice"
             render={({ field: { onChange, value } }) => (
               <Input
-                label="Estimated Price"
+                label="Price"
                 placeholder="0"
                 type="number"
                 value={value?.toString()}
-                onChangeText={text => onChange(text ? parseFloat(text) : undefined)}
+                onChangeText={text =>
+                  onChange(text ? parseFloat(text) : undefined)
+                }
                 leftIcon="cash-outline"
               />
             )}
@@ -193,12 +278,23 @@ const AddBazarItemModal: React.FC = () => {
                   {CATEGORIES.map(cat => (
                     <TouchableOpacity
                       key={cat}
-                      style={[styles.catChip, { borderColor: borderC, backgroundColor: surfaceC },
-                        value === cat && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                      style={[
+                        styles.catChip,
+                        { borderColor: borderC, backgroundColor: surfaceC },
+                        value === cat && {
+                          backgroundColor: colors.primary,
+                          borderColor: colors.primary,
+                        },
+                      ]}
                       onPress={() => onChange(value === cat ? '' : cat)}
                     >
-                      <Text style={[styles.chipText, { color: textSec },
-                        value === cat && { color: '#FFF', fontWeight: '700' }]}>
+                      <Text
+                        style={[
+                          styles.chipText,
+                          { color: textSec },
+                          value === cat && { color: '#FFF', fontWeight: '700' },
+                        ]}
+                      >
                         {cat}
                       </Text>
                     </TouchableOpacity>
@@ -244,6 +340,7 @@ const AddBazarItemModal: React.FC = () => {
             {isEditMode ? 'Update' : 'Add'}
           </Button>
         </View>
+        <GuideView />
       </View>
     </SafeScreen>
   );
@@ -252,8 +349,12 @@ const AddBazarItemModal: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
   },
   headerTitle: { fontSize: 16, fontWeight: '700' },
   content: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },
@@ -261,24 +362,48 @@ const styles = StyleSheet.create({
   qtySection: { marginBottom: 16 },
   qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   qtyInput: {
-    flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 10,
-    height: 38, overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    height: 38,
+    overflow: 'hidden',
   },
-  qtyBtn: { width: 34, height: 38, justifyContent: 'center', alignItems: 'center' },
-  qtyVal: { fontSize: 14, fontWeight: '700', minWidth: 28, textAlign: 'center' },
+  qtyBtn: {
+    width: 34,
+    height: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  qtyVal: {
+    fontSize: 14,
+    fontWeight: '700',
+    minWidth: 28,
+    textAlign: 'center',
+  },
   errorText: { fontSize: 12, color: '#EF4444', marginTop: 4 },
   section: { marginBottom: 16 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   unitRow: { gap: 6 },
   chip: {
-    paddingHorizontal: 10, height: 34, justifyContent: 'center', borderRadius: 8, borderWidth: 1,
+    paddingHorizontal: 10,
+    height: 34,
+    justifyContent: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
   },
   catChip: {
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
   },
   chipText: { fontSize: 12, fontWeight: '600' },
   footer: {
-    flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1,
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
   },
 });
 

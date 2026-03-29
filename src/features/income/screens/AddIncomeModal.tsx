@@ -26,7 +26,7 @@ import {
   useIncome,
   useIncomeCategories,
 } from '../../../hooks/api/useIncome';
-import { Button, Input, Spinner, SafeScreen } from '../../../components/common';
+import { Button, Input, Spinner, SafeScreen, useGuide } from '../../../components/common';
 import { incomeSchema } from '../../../utils/validation/schemas';
 import { formatDate } from '../../../utils/formatters';
 import RecurringIncomeModal from '../components/RecurringIncomeModal';
@@ -36,7 +36,8 @@ import { useCategories } from '../../../hooks/api/useCategories';
 const AddIncomeModal: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { colors, textStyles, spacing, borderRadius } = useTheme();
+  const { colors, textStyles, spacing, borderRadius, isDark } = useTheme();
+  const { GuideButton, GuideView } = useGuide('addIncome');
 
   const { mode, incomeId } = (route.params as any) || { mode: 'create' };
   const isEditMode = mode === 'edit';
@@ -150,7 +151,7 @@ const AddIncomeModal: React.FC = () => {
           <Text style={styles.title}>
             {isEditMode ? 'Edit Income' : 'Add Income'}
           </Text>
-          <View style={{ width: 24 }} />
+          <GuideButton color={colors.text.primary} />
         </View>
 
       <ScrollView style={styles.content}>
@@ -451,6 +452,7 @@ const AddIncomeModal: React.FC = () => {
               onDateChange={date => setValue('date', date)}
               mode="date"
               maximumDate={new Date()}
+              theme={isDark ? 'dark' : 'light'}
             />
           </View>
         </View>
@@ -515,6 +517,7 @@ const AddIncomeModal: React.FC = () => {
           </View>
         </View>
       </Modal>
+        <GuideView />
       </View>
     </SafeScreen>
   );

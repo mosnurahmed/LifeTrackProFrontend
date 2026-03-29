@@ -19,13 +19,15 @@ import {
   useSavingsStats,
   useSavingsGoals,
 } from '../../../hooks/api/useSavingsGoals';
-import { Spinner, ErrorState, AppHeader } from '../../../components/common';
+import { useInvestmentStats } from '../../../hooks/api/useInvestments';
+import { Spinner, ErrorState, AppHeader, useGuide } from '../../../components/common';
 import { formatCurrency } from '../../../utils/formatters';
 
 const SavingsGoalsStatsScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { GuideButton, GuideView } = useGuide('savingsStats');
 
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
@@ -35,6 +37,7 @@ const SavingsGoalsStatsScreen: React.FC = () => {
   const now = new Date();
   const { data: stats, isLoading, error } = useSavingsStats(now.getFullYear(), now.getMonth() + 1);
   const { data: goalsData } = useSavingsGoals();
+  const { data: invStats } = useInvestmentStats();
 
   const goals = goalsData?.data?.data || [];
   const activeGoals = goals.filter((g: any) => !g.isCompleted);
@@ -62,7 +65,10 @@ const SavingsGoalsStatsScreen: React.FC = () => {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Savings Statistics" />
+      <AppHeader
+        title="Savings Statistics"
+        right={<GuideButton color={textPri} />}
+      />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
         {/* Summary Row */}
@@ -213,6 +219,54 @@ const SavingsGoalsStatsScreen: React.FC = () => {
           </View>
         )}
 
+        {/* Investment Overview */}
+        {invStats && invStats.activeCount > 0 && (
+          <View style={[s.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+            <Text style={[s.cardTitle, { color: textPri }]}>Investment Overview</Text>
+
+            {/* Investment summary grid */}
+            <View style={s.invGrid}>
+              <View style={[s.invCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC', borderColor: borderC }]}>
+                <Text style={[s.invLabel, { color: textSec }]}>Total Invested</Text>
+                <Text style={[s.invVal, { color: colors.primary }]}>{formatCurrency(invStats.totalInvested)}</Text>
+              </View>
+              <View style={[s.invCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC', borderColor: borderC }]}>
+                <Text style={[s.invLabel, { color: textSec }]}>Maturity Value</Text>
+                <Text style={[s.invVal, { color: textPri }]}>{formatCurrency(invStats.totalMaturityValue)}</Text>
+              </View>
+              <View style={[s.invCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC', borderColor: borderC }]}>
+                <Text style={[s.invLabel, { color: textSec }]}>Expected Profit</Text>
+                <Text style={[s.invVal, { color: '#22C55E' }]}>{formatCurrency(invStats.expectedProfit)}</Text>
+              </View>
+              <View style={[s.invCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC', borderColor: borderC }]}>
+                <Text style={[s.invLabel, { color: textSec }]}>Active Plans</Text>
+                <Text style={[s.invVal, { color: textPri }]}>{invStats.activeCount}</Text>
+              </View>
+            </View>
+
+            {/* By type breakdown */}
+            {invStats.byType && Object.entries(invStats.byType)
+              .filter(([_, v]: any) => v.count > 0)
+              .map(([type, v]: any) => (
+                <View key={type} style={s.invTypeRow}>
+                  <Text style={[s.invTypeLabel, { color: textSec }]}>{type.toUpperCase()}</Text>
+                  <Text style={[s.invTypeCount, { color: textSec }]}>{v.count} plan{v.count > 1 ? 's' : ''}</Text>
+                  <Text style={[s.invTypeVal, { color: textPri }]}>{formatCurrency(v.invested)}</Text>
+                </View>
+              ))
+            }
+
+            {invStats.maturedCount > 0 && (
+              <View style={[s.invMatured, { borderTopColor: borderC }]}>
+                <Icon name="checkmark-circle" size={14} color="#22C55E" />
+                <Text style={[s.invMaturedText, { color: textSec }]}>
+                  {invStats.maturedCount} matured — {formatCurrency(invStats.totalMaturedValue)} received
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Insights */}
         <View style={[s.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
           <Text style={[s.cardTitle, { color: textPri }]}>Insights</Text>
@@ -242,6 +296,7 @@ const SavingsGoalsStatsScreen: React.FC = () => {
             ))}
         </View>
       </ScrollView>
+      <GuideView />
     </View>
   );
 };
@@ -298,6 +353,18 @@ const s = StyleSheet.create({
   insightRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
   insightDot: { width: 24, height: 24, borderRadius: 6, justifyContent: 'center', alignItems: 'center', marginTop: 1 },
   insightText: { flex: 1, fontSize: 12, lineHeight: 17 },
+
+  // Investment overview
+  invGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  invCard: { width: '48%' as any, borderRadius: 10, borderWidth: 1, padding: 10 },
+  invLabel: { fontSize: 10, marginBottom: 3 },
+  invVal: { fontSize: 15, fontWeight: '700' },
+  invTypeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, gap: 8 },
+  invTypeLabel: { fontSize: 11, fontWeight: '700', width: 90 },
+  invTypeCount: { fontSize: 11, flex: 1 },
+  invTypeVal: { fontSize: 13, fontWeight: '600' },
+  invMatured: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 10, marginTop: 8, borderTopWidth: 1 },
+  invMaturedText: { fontSize: 12 },
 });
 
 export default SavingsGoalsStatsScreen;

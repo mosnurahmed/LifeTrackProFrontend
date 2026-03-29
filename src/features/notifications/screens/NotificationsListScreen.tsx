@@ -20,6 +20,8 @@ import {
   useClearAllNotifications,
 } from '../../../hooks/api/useNotifications';
 import { formatRelativeTime } from '../../../utils/formatters';
+import { NotificationsSkeleton } from '../../../components/common/Loading/ScreenSkeletons';
+import { useGuide } from '../../../components/common';
 
 // ─── Icon / color config per type ─────────────────────────────────────────────
 
@@ -95,7 +97,8 @@ const NotificationsListScreen: React.FC = () => {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const { data: notifications = [], isRefetching, refetch } = useNotifications();
+  const { GuideButton, GuideView } = useGuide('notifications');
+  const { data: notifications = [], isLoading, isRefetching, refetch } = useNotifications();
   const { mutate: markRead }    = useMarkRead();
   const { mutate: markAllRead } = useMarkAllRead();
   const { mutate: deleteNotif } = useDeleteNotification();
@@ -119,6 +122,27 @@ const NotificationsListScreen: React.FC = () => {
       { text: 'Clear', style: 'destructive', onPress: () => clearAll() },
     ]);
   };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: bgColor }]}>
+        <View style={[styles.header, {
+          paddingTop: insets.top + 10,
+          backgroundColor: surfaceC,
+          borderBottomColor: borderC,
+        }]}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
+            <Icon name="arrow-back" size={24} color={textPri} />
+          </TouchableOpacity>
+          <View>
+            <Text style={[styles.headerTitle, { color: textPri }]}>Notifications</Text>
+          </View>
+          <View style={styles.headerActions} />
+        </View>
+        <NotificationsSkeleton />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>

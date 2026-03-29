@@ -10,12 +10,13 @@ import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
 import { useTaskStats, useTasks } from '../../../hooks/api/useTasks';
-import { Spinner, ErrorState, AppHeader } from '../../../components/common';
+import { Spinner, ErrorState, AppHeader, useGuide } from '../../../components/common';
 
 const TaskStatsScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { GuideButton, GuideView } = useGuide('taskStats');
 
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
@@ -61,7 +62,10 @@ const TaskStatsScreen: React.FC = () => {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Task Statistics" />
+      <AppHeader
+        title="Task Statistics"
+        right={<GuideButton color={textPri} />}
+      />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
         {/* Summary Row */}
@@ -182,6 +186,7 @@ const TaskStatsScreen: React.FC = () => {
           ))}
         </View>
       </ScrollView>
+      <GuideView />
     </View>
   );
 };

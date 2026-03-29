@@ -15,7 +15,7 @@ import {
   useTask, useUpdateTaskStatus, useDeleteTask,
   useAddSubtask, useUpdateSubtask, useDeleteSubtask,
 } from '../../../hooks/api/useTasks';
-import { Spinner, ErrorState } from '../../../components/common';
+import { Spinner, ErrorState, useGuide } from '../../../components/common';
 import { useConfirm } from '../../../components/common/ConfirmModal';
 import { formatDate, formatRelativeTime } from '../../../utils/formatters';
 
@@ -39,6 +39,7 @@ const TaskDetailsScreen: React.FC = () => {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { confirm } = useConfirm();
+  const { GuideButton, GuideView } = useGuide('taskDetails');
 
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
@@ -93,6 +94,7 @@ const TaskDetailsScreen: React.FC = () => {
           <Icon name="arrow-back" size={22} color={textPri} />
         </TouchableOpacity>
         <Text style={[st.headerTitle, { color: textPri }]}>Task Details</Text>
+        <GuideButton color={textPri} />
         <TouchableOpacity style={st.headerBtn} onPress={() => (navigation as any).navigate('AddTask', { mode: 'edit', taskId })}>
           <Icon name="create-outline" size={18} color={colors.primary} />
         </TouchableOpacity>
@@ -324,6 +326,7 @@ const TaskDetailsScreen: React.FC = () => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <GuideView />
     </View>
   );
 };

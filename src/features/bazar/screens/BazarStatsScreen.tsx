@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PieChart } from 'react-native-chart-kit';
 import { useTheme } from '../../../hooks/useTheme';
 import { useBazarStats } from '../../../hooks/api/useBazar';
-import { Spinner, ErrorState } from '../../../components/common';
+import { Spinner, ErrorState, useGuide } from '../../../components/common';
 import { formatCurrency } from '../../../utils/formatters';
 
 const { width } = Dimensions.get('window');
@@ -22,6 +22,7 @@ const BazarStatsScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { GuideButton, GuideView } = useGuide('bazarStats');
 
   const { data: statsData, isLoading, error } = useBazarStats();
   const stats = statsData?.data;
@@ -48,7 +49,7 @@ const BazarStatsScreen: React.FC = () => {
         <Icon name="arrow-back" size={22} color={textPri} />
       </TouchableOpacity>
       <Text style={[styles.headerTitle, { color: textPri }]}>Shopping Statistics</Text>
-      <View style={{ width: 38 }} />
+      <GuideButton color={textPri} />
     </View>
   );
 
@@ -181,6 +182,7 @@ const BazarStatsScreen: React.FC = () => {
           </View>
         )}
       </ScrollView>
+      <GuideView />
     </View>
   );
 };

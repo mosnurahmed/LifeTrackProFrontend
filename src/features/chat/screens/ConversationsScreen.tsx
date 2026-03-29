@@ -28,6 +28,8 @@ import {
   useSendMessage,
 } from '../../../hooks/api/useChat';
 import { ConversationItem } from '../components/ConversationItem';
+import { ConversationsSkeleton } from '../../../components/common/Loading/ScreenSkeletons';
+import { useGuide } from '../../../components/common';
 
 // ─── New Chat Modal ────────────────────────────────────────────────────────────
 
@@ -294,6 +296,7 @@ const ConversationsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
 
   const [showNewChat, setShowNewChat] = useState(false);
+  const { GuideButton, GuideView } = useGuide('chat');
 
   const {
     data: conversationsData,
@@ -355,6 +358,34 @@ const ConversationsScreen: React.FC = () => {
       </TouchableOpacity>
     </View>
   );
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: bgColor }]}>
+        <View
+          style={[
+            styles.header,
+            {
+              paddingTop: insets.top + 12,
+              backgroundColor: surfaceC,
+              borderBottomColor: borderC,
+            },
+          ]}
+        >
+          <View>
+            <Text style={[styles.headerTitle, { color: textPri }]}>Messages</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.newBtn, { backgroundColor: primary }]}
+            onPress={() => setShowNewChat(true)}
+          >
+            <Icon name="create-outline" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+        <ConversationsSkeleton />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>

@@ -14,7 +14,7 @@ import DatePicker from 'react-native-date-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
 import { useCreateTask, useUpdateTask, useTask } from '../../../hooks/api/useTasks';
-import { Spinner } from '../../../components/common';
+import { Spinner, useGuide } from '../../../components/common';
 import { taskSchema } from '../../../utils/validation/schemas';
 import { formatDate } from '../../../utils/formatters';
 
@@ -43,6 +43,7 @@ const AddTaskModal: React.FC = () => {
   const route = useRoute();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { GuideButton, GuideView } = useGuide('addTask');
 
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
@@ -117,7 +118,7 @@ const AddTaskModal: React.FC = () => {
           <Icon name="close" size={22} color={textPri} />
         </TouchableOpacity>
         <Text style={[s.headerTitle, { color: textPri }]}>{isEdit ? 'Edit Task' : 'New Task'}</Text>
-        <View style={{ width: 36 }} />
+        <GuideButton color={textPri} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 80 }]}>
@@ -285,7 +286,7 @@ const AddTaskModal: React.FC = () => {
                 <Text style={[s.pickerDone, { color: colors.primary }]}>Done</Text>
               </TouchableOpacity>
             </View>
-            <DatePicker date={dueDate || new Date()} onDateChange={d => setValue('dueDate', d)} mode="date" minimumDate={new Date()} />
+            <DatePicker date={dueDate || new Date()} onDateChange={d => setValue('dueDate', d)} mode="date" minimumDate={new Date()} theme={isDark ? 'dark' : 'light'} />
           </View>
         </View>
       </Modal>
@@ -303,10 +304,11 @@ const AddTaskModal: React.FC = () => {
                 <Text style={[s.pickerDone, { color: colors.primary }]}>Done</Text>
               </TouchableOpacity>
             </View>
-            <DatePicker date={reminderTime || new Date()} onDateChange={setReminderTime} mode="datetime" minimumDate={new Date()} />
+            <DatePicker date={reminderTime || new Date()} onDateChange={setReminderTime} mode="datetime" minimumDate={new Date()} theme={isDark ? 'dark' : 'light'} />
           </View>
         </View>
       </Modal>
+      <GuideView />
     </View>
   );
 };

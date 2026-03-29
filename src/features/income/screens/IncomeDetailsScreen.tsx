@@ -16,7 +16,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../hooks/useTheme';
 import { useIncome, useDeleteIncome } from '../../../hooks/api/useIncome';
-import { Spinner, ErrorState, useConfirm } from '../../../components/common';
+import { Spinner, ErrorState, useConfirm, useGuide } from '../../../components/common';
 import { formatCurrency, formatDate, formatRelativeTime } from '../../../utils/formatters';
 
 const IncomeDetailsScreen: React.FC = () => {
@@ -24,6 +24,7 @@ const IncomeDetailsScreen: React.FC = () => {
   const route = useRoute();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { GuideButton, GuideView } = useGuide('incomeDetails');
 
   const { incomeId } = (route.params as any) || {};
 
@@ -103,6 +104,7 @@ const IncomeDetailsScreen: React.FC = () => {
           <Icon name="arrow-back" size={22} color={textPri} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: textPri }]}>Details</Text>
+        <GuideButton color={textPri} />
         <TouchableOpacity style={styles.headerBtn} onPress={handleEdit}>
           <Icon name="create-outline" size={20} color="#8B5CF6" />
         </TouchableOpacity>
@@ -173,6 +175,7 @@ const IncomeDetailsScreen: React.FC = () => {
           <Text style={styles.deleteBtnText}>Delete Income</Text>
         </TouchableOpacity>
       </ScrollView>
+      <GuideView />
     </View>
   );
 };

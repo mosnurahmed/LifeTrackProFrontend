@@ -12,3 +12,4 @@ export { Skeleton, SkeletonCard, SkeletonList, Spinner } from './Loading';
 export { default as SafeScreen } from './SafeScreen';
 export { default as AppHeader } from './AppHeader';
 export { ConfirmProvider, useConfirm } from './ConfirmModal';
+export { useGuide, GuideModal } from './GuideModal';

@@ -43,18 +43,16 @@ const RegisterScreen: React.FC = () => {
     try {
       setIsLoading(true);
 
-      const response = await client.post('/auth/register', data);
-
-      console.log('📦 Registration Response:', response.data);
+      await client.post('/auth/register', data);
 
       Toast.show({
         type: 'success',
-        text1: 'Success!',
-        text2: 'Account created successfully. Please login.',
+        text1: 'Code Sent!',
+        text2: 'Check your email for verification code.',
       });
 
-      // Navigate to login
-      navigation.navigate('Login' as never);
+      // Navigate to OTP verification
+      (navigation as any).navigate('VerifyOTP', { email: data.email, purpose: 'verification' });
     } catch (error: any) {
       console.log(
         '❌ Registration Error:',

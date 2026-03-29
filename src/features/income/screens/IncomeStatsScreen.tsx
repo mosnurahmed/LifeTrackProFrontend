@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LineChart, PieChart } from 'react-native-chart-kit';
 import { useTheme } from '../../../hooks/useTheme';
 import { useIncomeStats, useDailyIncomes } from '../../../hooks/api/useIncome';
-import { Spinner, ErrorState } from '../../../components/common';
+import { Spinner, ErrorState, useGuide } from '../../../components/common';
 import { formatCurrency } from '../../../utils/formatters';
 
 const { width } = Dimensions.get('window');
@@ -26,6 +26,7 @@ const IncomeStatsScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { GuideButton, GuideView } = useGuide('incomeStats');
   const [selectedPeriod, setSelectedPeriod] = useState<7 | 30 | 90>(30);
 
   const { data: statsData, isLoading, error } = useIncomeStats();
@@ -121,7 +122,7 @@ const IncomeStatsScreen: React.FC = () => {
           <Icon name="arrow-back" size={22} color={textPri} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: textPri }]}>Income Statistics</Text>
-        <View style={{ width: 38 }} />
+        <GuideButton color={textPri} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }}>
@@ -232,6 +233,7 @@ const IncomeStatsScreen: React.FC = () => {
           </View>
         )}
       </ScrollView>
+      <GuideView />
     </View>
   );
 };

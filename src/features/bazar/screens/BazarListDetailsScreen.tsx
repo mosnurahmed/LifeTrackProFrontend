@@ -12,7 +12,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../../hooks/useTheme';
 import { useBazarList, useToggleItem, useDeleteItem } from '../../../hooks/api/useBazar';
 import { AppHeader, useConfirm } from '../../../components/common';
-import { Spinner, ErrorState } from '../../../components/common';
+import { Spinner, ErrorState, useGuide } from '../../../components/common';
 import { formatCurrency } from '../../../utils/formatters';
 
 // ─── Item Row ─────────────────────────────────────────────────────────────────
@@ -52,8 +52,6 @@ const ItemRow = ({
 
       {item.actualPrice ? (
         <Text style={[styles.priceText, { color: textPri }]}>{formatCurrency(item.actualPrice)}</Text>
-      ) : item.estimatedPrice ? (
-        <Text style={[styles.priceText, { color: textSec }]}>~{formatCurrency(item.estimatedPrice)}</Text>
       ) : null}
     </TouchableOpacity>
   );
@@ -66,6 +64,7 @@ const BazarListDetailsScreen: React.FC = () => {
   const route = useRoute();
   const { colors, isDark } = useTheme();
   const { confirm, actionSheet } = useConfirm();
+  const { GuideButton, GuideView } = useGuide('bazarListDetails');
   const { listId } = (route.params as any) || {};
 
   const { data: listData, isLoading, error, refetch, isRefetching } = useBazarList(listId);
@@ -161,12 +160,15 @@ const BazarListDetailsScreen: React.FC = () => {
       <AppHeader
         title={list.title}
         right={
-          <TouchableOpacity
-            style={[styles.editBtn, { backgroundColor: colors.primary + '15' }]}
-            onPress={() => (navigation as any).navigate('AddBazarList', { mode: 'edit', listId })}
-          >
-            <Icon name="create-outline" size={16} color={colors.primary} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <GuideButton color={textPri} />
+            <TouchableOpacity
+              style={[styles.editBtn, { backgroundColor: colors.primary + '15' }]}
+              onPress={() => (navigation as any).navigate('AddBazarList', { mode: 'edit', listId })}
+            >
+              <Icon name="create-outline" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -204,22 +206,30 @@ const BazarListDetailsScreen: React.FC = () => {
               <Text style={[styles.pctLabel, { color: textSec }]}>{Math.round(pct)}% complete</Text>
 
               {/* Budget */}
-              {list.totalBudget ? (
-                <View style={styles.budgetRow}>
-                  <Text style={[styles.budgetText, { color: textSec }]}>
-                    Budget: <Text style={{ color: textPri, fontWeight: '700' }}>{formatCurrency(list.totalBudget)}</Text>
-                  </Text>
-                  <Text style={[styles.budgetText, { color: textSec }]}>
-                    Spent: <Text style={{ color: list.totalActualCost > list.totalBudget ? '#C75050' : textPri, fontWeight: '700' }}>
-                      {formatCurrency(list.totalActualCost)}
+              {(() => {
+                const spent = list.totalActualCost > 0
+                  ? list.totalActualCost
+                  : (list.items || [])
+                      .filter((i: any) => i.isPurchased)
+                      .reduce((s: number, i: any) => s + (i.actualPrice || 0), 0);
+                const isOver = list.totalBudget && spent > list.totalBudget;
+                return list.totalBudget ? (
+                  <View style={styles.budgetRow}>
+                    <Text style={[styles.budgetText, { color: textSec }]}>
+                      Budget: <Text style={{ color: textPri, fontWeight: '700' }}>{formatCurrency(list.totalBudget)}</Text>
                     </Text>
+                    <Text style={[styles.budgetText, { color: textSec }]}>
+                      Spent: <Text style={{ color: isOver ? '#C75050' : textPri, fontWeight: '700' }}>
+                        {formatCurrency(spent)}
+                      </Text>
+                    </Text>
+                  </View>
+                ) : list.totalEstimatedCost > 0 ? (
+                  <Text style={[styles.estText, { color: textSec }]}>
+                    Est. total: <Text style={{ color: textPri, fontWeight: '700' }}>{formatCurrency(list.totalEstimatedCost)}</Text>
                   </Text>
-                </View>
-              ) : list.totalEstimatedCost > 0 ? (
-                <Text style={[styles.estText, { color: textSec }]}>
-                  Est. total: <Text style={{ color: textPri, fontWeight: '700' }}>{formatCurrency(list.totalEstimatedCost)}</Text>
-                </Text>
-              ) : null}
+                ) : null;
+              })()}
             </View>
 
             {/* Items header */}
@@ -252,6 +262,7 @@ const BazarListDetailsScreen: React.FC = () => {
         }
         contentContainerStyle={styles.listContent}
       />
+      <GuideView />
     </View>
   );
 };

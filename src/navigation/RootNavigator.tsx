@@ -22,11 +22,18 @@ import IncomeDetailsScreen from '../features/income/screens/IncomeDetailsScreen'
 import {
   AddSavingsGoalModal,
   SavingsGoalDetailsScreen,
+  AddInvestmentModal,
+  InvestmentDetailsScreen,
 } from '../features/savings/screens';
 import { ChatScreen, ConversationsScreen } from '../features/chat/screens';
 import NoteEditorScreen from '../features/notes/screens/NoteEditorScreen';
 import NotificationsScreen from '../features/profile/screens/NotificationsScreen';
 import NotificationsListScreen from '../features/notifications/screens/NotificationsListScreen';
+import EditProfileScreen from '../features/profile/screens/EditProfileScreen';
+import ChangePasswordScreen from '../features/profile/screens/ChangePasswordScreen';
+import LoansScreen from '../features/loans/screens/LoansScreen';
+import AddLoanModal from '../features/loans/screens/AddLoanModal';
+import LoanDetailsScreen from '../features/loans/screens/LoanDetailsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -118,6 +125,16 @@ const RootNavigator: React.FC = () => {
                 options={{ headerShown: false }}
               />
               <Stack.Screen
+                name="AddInvestment"
+                component={AddInvestmentModal}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="InvestmentDetails"
+                component={InvestmentDetailsScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
                 name="AddIncome"
                 component={AddIncomeModal}
                 options={{ headerShown: false }}
@@ -173,6 +190,31 @@ const RootNavigator: React.FC = () => {
               <Stack.Screen
                 name="NotificationsList"
                 component={NotificationsListScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="EditProfile"
+                component={EditProfileScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="ChangePassword"
+                component={ChangePasswordScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="Loans"
+                component={LoansScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="AddLoan"
+                component={AddLoanModal}
+                options={{ headerShown: false, animation: 'slide_from_bottom' }}
+              />
+              <Stack.Screen
+                name="LoanDetails"
+                component={LoanDetailsScreen}
                 options={{ headerShown: false }}
               />
             </Stack.Group>

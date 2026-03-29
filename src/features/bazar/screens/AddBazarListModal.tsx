@@ -21,13 +21,14 @@ import {
   useUpdateList,
   useBazarList,
 } from '../../../hooks/api/useBazar';
-import { Button, Input, SafeScreen, Spinner } from '../../../components/common';
+import { Button, Input, SafeScreen, Spinner, useGuide } from '../../../components/common';
 import { bazarListSchema } from '../../../utils/validation/schemas';
 
 const AddBazarListModal: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { colors, isDark } = useTheme();
+  const { GuideButton, GuideView } = useGuide('addBazarList');
 
   const { mode, listId } = (route.params as any) || { mode: 'create' };
   const isEditMode = mode === 'edit';
@@ -93,7 +94,7 @@ const AddBazarListModal: React.FC = () => {
           <Text style={[styles.headerTitle, { color: textPri }]}>
             {isEditMode ? 'Edit List' : 'New List'}
           </Text>
-          <View style={{ width: 22 }} />
+          <GuideButton color={textPri} />
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -162,6 +163,7 @@ const AddBazarListModal: React.FC = () => {
             {isEditMode ? 'Update' : 'Create'}
           </Button>
         </View>
+        <GuideView />
       </View>
     </SafeScreen>
   );
