@@ -26,15 +26,23 @@ import { useGuide } from '../../../components/common';
 // ─── Icon / color config per type ─────────────────────────────────────────────
 
 const TYPE_META: Record<string, { icon: string; color: string; bg: string }> = {
-  expense_added:      { icon: 'wallet',             color: '#EF4444', bg: '#EF444415' },
-  income_added:       { icon: 'cash',               color: '#10B981', bg: '#10B98115' },
-  budget_warning:     { icon: 'warning',            color: '#F97316', bg: '#F9731615' },
-  budget_exceeded:    { icon: 'alert-circle',       color: '#EF4444', bg: '#EF444415' },
-  task_reminder:      { icon: 'alarm',              color: '#06B6D4', bg: '#06B6D415' },
-  task_due_today:     { icon: 'time',               color: '#F59E0B', bg: '#F59E0B15' },
-  savings_milestone:  { icon: 'trending-up',        color: '#10B981', bg: '#10B98115' },
-  savings_completed:  { icon: 'trophy',             color: '#F59E0B', bg: '#F59E0B15' },
-  default:            { icon: 'notifications',      color: '#8B5CF6', bg: '#8B5CF615' },
+  expense_added:            { icon: 'wallet',               color: '#EF4444', bg: '#EF444415' },
+  income_added:             { icon: 'cash',                 color: '#10B981', bg: '#10B98115' },
+  budget_warning:           { icon: 'warning',              color: '#F97316', bg: '#F9731615' },
+  budget_exceeded:          { icon: 'alert-circle',         color: '#EF4444', bg: '#EF444415' },
+  task_reminder:            { icon: 'alarm',                color: '#06B6D4', bg: '#06B6D415' },
+  task_due_today:           { icon: 'time',                 color: '#F59E0B', bg: '#F59E0B15' },
+  savings_milestone:        { icon: 'trending-up',          color: '#10B981', bg: '#10B98115' },
+  savings_completed:        { icon: 'trophy',               color: '#F59E0B', bg: '#F59E0B15' },
+  loan_reminder:            { icon: 'calendar-outline',     color: '#F97316', bg: '#F9731615' },
+  loan_due_today:           { icon: 'alert-circle',         color: '#EF4444', bg: '#EF444415' },
+  loan_overdue:             { icon: 'warning',              color: '#EF4444', bg: '#EF444415' },
+  loan_payment:             { icon: 'receipt-outline',      color: '#10B981', bg: '#10B98115' },
+  investment_reminder:      { icon: 'calendar-outline',     color: '#8B5CF6', bg: '#8B5CF615' },
+  investment_maturing:      { icon: 'trending-up',          color: '#F59E0B', bg: '#F59E0B15' },
+  investment_matured:       { icon: 'trophy',               color: '#10B981', bg: '#10B98115' },
+  investment_contribution:  { icon: 'cash-outline',         color: '#3B82F6', bg: '#3B82F615' },
+  default:                  { icon: 'notifications',        color: '#8B5CF6', bg: '#8B5CF615' },
 };
 
 const getMeta = (type: string) => TYPE_META[type] ?? TYPE_META.default;
@@ -114,6 +122,25 @@ const NotificationsListScreen: React.FC = () => {
 
   const handlePress = (item: any) => {
     if (!item.isRead) markRead(item._id);
+
+    // Navigate based on notification type
+    const nav = navigation as any;
+    const type = item.type;
+    if (type === 'loan_reminder' || type === 'loan_due_today' || type === 'loan_overdue' || type === 'loan_payment') {
+      nav.navigate('Loans');
+    } else if (type === 'investment_reminder' || type === 'investment_maturing' || type === 'investment_matured' || type === 'investment_contribution') {
+      nav.navigate('Savings');
+    } else if (type === 'expense_added') {
+      nav.navigate('Expenses');
+    } else if (type === 'income_added') {
+      nav.navigate('Income');
+    } else if (type === 'budget_warning' || type === 'budget_exceeded') {
+      nav.navigate('Budget');
+    } else if (type === 'task_reminder' || type === 'task_due_today') {
+      nav.navigate('Tasks');
+    } else if (type === 'savings_milestone' || type === 'savings_completed') {
+      nav.navigate('Savings');
+    }
   };
 
   const handleClearAll = () => {

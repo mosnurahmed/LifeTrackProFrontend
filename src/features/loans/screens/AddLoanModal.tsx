@@ -328,12 +328,15 @@ const AddLoanModal: React.FC = () => {
                 <Text style={[s.pickerCancel, { color: textSec }]}>Cancel</Text>
               </TouchableOpacity>
               <Text style={[s.pickerTitle, { color: textPri }]}>Loan Date</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+              <TouchableOpacity onPress={() => {
+                if (!date) setValue('date', new Date());
+                setShowDatePicker(false);
+              }}>
                 <Text style={[s.pickerDone, { color: typeColor }]}>Done</Text>
               </TouchableOpacity>
             </View>
             <DatePicker
-              date={date}
+              date={date || new Date()}
               onDateChange={d => setValue('date', d)}
               mode="date"
               theme={isDark ? 'dark' : 'light'}
@@ -351,7 +354,10 @@ const AddLoanModal: React.FC = () => {
                 <Text style={[s.pickerCancel, { color: textSec }]}>Cancel</Text>
               </TouchableOpacity>
               <Text style={[s.pickerTitle, { color: textPri }]}>Deadline</Text>
-              <TouchableOpacity onPress={() => setShowDeadlinePicker(false)}>
+              <TouchableOpacity onPress={() => {
+                if (!deadline) setValue('deadline', new Date());
+                setShowDeadlinePicker(false);
+              }}>
                 <Text style={[s.pickerDone, { color: typeColor }]}>Done</Text>
               </TouchableOpacity>
             </View>
