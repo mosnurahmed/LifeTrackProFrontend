@@ -3,7 +3,7 @@
  * Bazar Statistics Screen — Professional Minimal
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions,
 } from 'react-native';
@@ -24,7 +24,23 @@ const BazarStatsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { GuideButton, GuideView } = useGuide('bazarStats');
 
-  const { data: statsData, isLoading, error } = useBazarStats();
+  const now = new Date();
+  const [selYear, setSelYear] = useState(now.getFullYear());
+  const [selMonth, setSelMonth] = useState(now.getMonth() + 1);
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const isCurrentMonth = selYear === now.getFullYear() && selMonth === now.getMonth() + 1;
+
+  const goPrev = () => {
+    if (selMonth === 1) { setSelMonth(12); setSelYear(y => y - 1); }
+    else setSelMonth(m => m - 1);
+  };
+  const goNext = () => {
+    if (isCurrentMonth) return;
+    if (selMonth === 12) { setSelMonth(1); setSelYear(y => y + 1); }
+    else setSelMonth(m => m + 1);
+  };
+
+  const { data: statsData, isLoading, error } = useBazarStats(selYear, selMonth);
   const stats = statsData?.data;
 
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
@@ -32,9 +48,10 @@ const BazarStatsScreen: React.FC = () => {
   const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
   const borderC = isDark ? '#334155' : '#F1F5F9';
 
-  const pieData = stats && (stats.completedLists > 0 || stats.activeLists > 0) ? [
-    { name: 'Done', population: stats.completedLists || 0, color: '#4A9B6E', legendFontColor: textPri, legendFontSize: 11 },
-    { name: 'Active', population: stats.activeLists || 0, color: colors.primary, legendFontColor: textPri, legendFontSize: 11 },
+  // Pie chart — filter out 0 values
+  const pieData = stats && stats.totalLists > 0 ? [
+    ...(stats.completedLists > 0 ? [{ name: `Done (${stats.completedLists})`, population: stats.completedLists, color: '#22C55E', legendFontColor: textPri, legendFontSize: 11 }] : []),
+    ...(stats.activeLists > 0 ? [{ name: `Active (${stats.activeLists})`, population: stats.activeLists, color: '#3B82F6', legendFontColor: textPri, legendFontSize: 11 }] : []),
   ] : [];
 
   const chartConfig = {
@@ -87,6 +104,23 @@ const BazarStatsScreen: React.FC = () => {
           ))}
         </View>
 
+        {/* Month Navigator */}
+        <View style={[styles.monthNav, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          <TouchableOpacity style={[styles.monthBtn, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]} onPress={goPrev}>
+            <Icon name="chevron-back" size={18} color={textPri} />
+          </TouchableOpacity>
+          <Text style={[styles.monthText, { color: textPri }]}>
+            {MONTHS[selMonth - 1]} {selYear}
+          </Text>
+          <TouchableOpacity
+            style={[styles.monthBtn, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }, isCurrentMonth && { opacity: 0.3 }]}
+            onPress={goNext}
+            disabled={isCurrentMonth}
+          >
+            <Icon name="chevron-forward" size={18} color={textPri} />
+          </TouchableOpacity>
+        </View>
+
         {/* Pie Chart */}
         {pieData.length > 0 && (
           <View style={[styles.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
@@ -117,7 +151,7 @@ const BazarStatsScreen: React.FC = () => {
           <View style={styles.spendRow}>
             {[
               { label: 'Total Spent', val: formatCurrency(stats.totalSpent || 0), color: textPri },
-              { label: 'This Month', val: formatCurrency(stats.thisMonthSpent || 0), color: '#4A9B6E' },
+              { label: `${MONTHS[selMonth - 1]}`, val: formatCurrency(stats.thisMonthSpent || 0), color: '#4A9B6E' },
               { label: 'Avg/List', val: formatCurrency(stats.averagePerList || 0), color: '#D4956A' },
             ].map((s, i) => (
               <View key={i} style={[styles.spendItem, i < 2 && { borderRightWidth: 1, borderRightColor: borderC }]}>
@@ -128,43 +162,92 @@ const BazarStatsScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Top Categories */}
+        {/* Top Categories — All Time */}
         {stats.topCategories && stats.topCategories.length > 0 && (
           <View style={[styles.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
             <View style={styles.cardHeader}>
               <Icon name="list-outline" size={16} color={colors.primary} />
-              <Text style={[styles.cardTitle, { color: textPri }]}>Top Categories</Text>
+              <Text style={[styles.cardTitle, { color: textPri }]}>All Time — Category Spending</Text>
             </View>
-            {stats.topCategories.slice(0, 5).map((cat: any, i: number) => (
-              <View key={i} style={[styles.listRow, i < Math.min(stats.topCategories.length, 5) - 1 && { borderBottomWidth: 1, borderBottomColor: borderC }]}>
-                <View style={[styles.rank, { backgroundColor: i === 0 ? colors.primary + '20' : borderC }]}>
-                  <Text style={[styles.rankText, { color: i === 0 ? colors.primary : textSec }]}>{i + 1}</Text>
+            {stats.topCategories.slice(0, 10).map((cat: any, i: number) => {
+              const maxSpent = stats.topCategories[0]?.spent || 1;
+              const pct = (cat.spent / maxSpent) * 100;
+              return (
+                <View key={i} style={[styles.catRow, i < Math.min(stats.topCategories.length, 10) - 1 && { borderBottomWidth: 1, borderBottomColor: borderC }]}>
+                  <View style={styles.catInfo}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={[styles.catName, { color: textPri }]}>{cat.name}</Text>
+                      <Text style={[styles.catAmount, { color: textPri }]}>{formatCurrency(cat.spent)}</Text>
+                    </View>
+                    <View style={[styles.catBar, { backgroundColor: `${colors.primary}12` }]}>
+                      <View style={[styles.catBarFill, { width: `${pct}%` as any, backgroundColor: colors.primary }]} />
+                    </View>
+                  </View>
                 </View>
-                <Text style={[styles.listName, { color: textPri }]}>{cat.name}</Text>
-                <Text style={[styles.listCount, { color: textSec }]}>{cat.count} items</Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
-        {/* Most Purchased */}
-        {stats.mostPurchasedItems && stats.mostPurchasedItems.length > 0 && (
+        {/* Monthly Breakdown — current month first, scrollable */}
+        {stats.monthlyBreakdown && stats.monthlyBreakdown.length > 0 && (() => {
+          const months = [...stats.monthlyBreakdown].reverse();
+          const maxSpent = Math.max(...months.map((x: any) => x.spent), 1);
+          return (
+            <View style={[styles.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+              <View style={styles.cardHeader}>
+                <Icon name="calendar-outline" size={16} color={colors.primary} />
+                <Text style={[styles.cardTitle, { color: textPri }]}>Monthly Spending</Text>
+              </View>
+              <ScrollView style={{ maxHeight: 280 }} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                {months.map((m: any, i: number) => {
+                  const pct = (m.spent / maxSpent) * 100;
+                  const isCurrent = i === 0;
+                  return (
+                    <View key={i} style={[styles.monthRow, i < months.length - 1 && { borderBottomWidth: 1, borderBottomColor: borderC }]}>
+                      <View style={styles.monthLabel}>
+                        <Text style={[styles.monthText, { color: isCurrent ? colors.primary : textPri, fontWeight: isCurrent ? '700' : '500' }]}>{m.month} {m.year}</Text>
+                        <Text style={[styles.monthSub, { color: textSec }]}>{m.lists} lists · {m.items} items</Text>
+                      </View>
+                      <View style={styles.monthBarWrap}>
+                        <View style={[styles.monthBar, { backgroundColor: `${colors.primary}12` }]}>
+                          <View style={[styles.monthBarFill, { width: `${pct}%` as any, backgroundColor: isCurrent ? colors.primary : `${colors.primary}60` }]} />
+                        </View>
+                      </View>
+                      <Text style={[styles.monthAmount, { color: m.spent > 0 ? (isCurrent ? colors.primary : textPri) : textSec, fontWeight: isCurrent ? '700' : '600' }]}>{formatCurrency(m.spent)}</Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          );
+        })()}
+
+        {/* This Month Categories */}
+        {stats.thisMonthCategories && stats.thisMonthCategories.length > 0 && (
           <View style={[styles.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
             <View style={styles.cardHeader}>
-              <Icon name="cart-outline" size={16} color={colors.primary} />
-              <Text style={[styles.cardTitle, { color: textPri }]}>Most Purchased</Text>
+              <Icon name="grid-outline" size={16} color="#F59E0B" />
+              <Text style={[styles.cardTitle, { color: textPri }]}>{MONTHS[selMonth - 1]} {selYear} — Categories</Text>
             </View>
-            {stats.mostPurchasedItems.slice(0, 8).map((item: any, i: number) => (
-              <View key={i} style={[styles.listRow, i < Math.min(stats.mostPurchasedItems.length, 8) - 1 && { borderBottomWidth: 1, borderBottomColor: borderC }]}>
-                <View style={[styles.rank, { backgroundColor: i < 3 ? colors.primary + '20' : borderC }]}>
-                  <Text style={[styles.rankText, { color: i < 3 ? colors.primary : textSec }]}>{i + 1}</Text>
+            {stats.thisMonthCategories.map((cat: any, i: number) => {
+              const totalCatSpent = stats.thisMonthCategories.reduce((s: number, c: any) => s + c.spent, 0);
+              const pct = totalCatSpent > 0 ? (cat.spent / totalCatSpent) * 100 : 0;
+              return (
+                <View key={i} style={[styles.catRow, i < stats.thisMonthCategories.length - 1 && { borderBottomWidth: 1, borderBottomColor: borderC }]}>
+                  <View style={styles.catInfo}>
+                    <Text style={[styles.catName, { color: textPri }]}>{cat.name}</Text>
+                    <View style={[styles.catBar, { backgroundColor: `${colors.primary}12` }]}>
+                      <View style={[styles.catBarFill, { width: `${pct}%` as any, backgroundColor: colors.primary }]} />
+                    </View>
+                  </View>
+                  <View style={styles.catRight}>
+                    <Text style={[styles.catAmount, { color: textPri }]}>{formatCurrency(cat.spent)}</Text>
+                    <Text style={[styles.catPct, { color: textSec }]}>{pct.toFixed(0)}%</Text>
+                  </View>
                 </View>
-                <Text style={[styles.listName, { color: textPri }]}>{item.name}</Text>
-                <View style={[styles.countBadge, { backgroundColor: colors.primary + '15' }]}>
-                  <Text style={[styles.countBadgeText, { color: colors.primary }]}>{item.count}x</Text>
-                </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
@@ -178,6 +261,9 @@ const BazarStatsScreen: React.FC = () => {
             <Text style={[styles.insightText, { color: textSec }]}>
               You've completed <Text style={{ color: textPri, fontWeight: '700' }}>{stats.completedLists || 0}</Text> shopping trips
               with an average of <Text style={{ color: textPri, fontWeight: '700' }}>{formatCurrency(stats.averagePerList || 0)}</Text> per trip.
+              {stats.thisMonthCategories && stats.thisMonthCategories.length > 0 && (
+                <Text> Top category this month: <Text style={{ color: colors.primary, fontWeight: '700' }}>{stats.thisMonthCategories[0].name}</Text> ({formatCurrency(stats.thisMonthCategories[0].spent)})</Text>
+              )}
             </Text>
           </View>
         )}
@@ -219,6 +305,34 @@ const styles = StyleSheet.create({
   countBadgeText: { fontSize: 11, fontWeight: '700' },
 
   insightText: { fontSize: 13, lineHeight: 20 },
+
+  // Month navigator
+  monthNav: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderRadius: 12, borderWidth: 1, padding: 8, marginBottom: 12,
+  },
+  monthBtn: { width: 34, height: 34, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  monthText: { fontSize: 15, fontWeight: '700' },
+
+  // Monthly breakdown
+  monthRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 8 },
+  monthLabel: { width: 70 },
+  monthText: { fontSize: 12 },
+  monthSub: { fontSize: 9 },
+  monthBarWrap: { flex: 1 },
+  monthBar: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  monthBarFill: { height: '100%', borderRadius: 3 },
+  monthAmount: { width: 70, fontSize: 12, fontWeight: '700', textAlign: 'right' },
+
+  // Category breakdown
+  catRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 10 },
+  catInfo: { flex: 1 },
+  catName: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
+  catBar: { height: 4, borderRadius: 2, overflow: 'hidden' },
+  catBarFill: { height: '100%', borderRadius: 2 },
+  catRight: { alignItems: 'flex-end' },
+  catAmount: { fontSize: 13, fontWeight: '700' },
+  catPct: { fontSize: 10 },
 });
 
 export default BazarStatsScreen;

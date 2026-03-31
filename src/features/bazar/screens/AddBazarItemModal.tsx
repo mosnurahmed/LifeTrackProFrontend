@@ -27,15 +27,45 @@ import { bazarItemSchema } from '../../../utils/validation/schemas';
 
 const UNITS = ['kg', 'g', 'L', 'mL', 'pcs', 'dozen', 'pack', 'box', 'bag'];
 const CATEGORIES = [
+  // Essentials
+  'Rice & Grains',
+  'Dal & Pulses',
+  'Oil & Ghee',
+  'Spices & Masala',
+  'Salt & Sugar',
+
+  // Fresh
   'Vegetables',
   'Fruits',
-  'Meat',
   'Fish',
-  'Dairy',
-  'Bakery',
-  'Snacks',
-  'Beverages',
-  'Household',
+  'Meat & Poultry',
+  'Eggs',
+  'Dairy & Milk',
+
+  // Cooking
+  'Flour & Atta',
+  'Onion & Garlic',
+  'Sauce & Condiments',
+
+  // Packaged
+  'Snacks & Biscuits',
+  'Beverages & Drinks',
+  'Tea & Coffee',
+  'Bread & Bakery',
+  'Noodles & Pasta',
+  'Canned & Packed Food',
+
+  // Home
+  'Cleaning Supplies',
+  'Toiletries',
+  'Kitchen Items',
+  'Baby & Kids',
+  'Medicine & Health',
+
+  // Other
+  'Stationery',
+  'Electronics',
+  'Clothing',
   'Other',
 ];
 

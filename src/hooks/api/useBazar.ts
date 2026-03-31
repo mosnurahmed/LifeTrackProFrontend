@@ -38,10 +38,10 @@ export const useBazarList = (id: string) => {
 };
 
 // Get statistics
-export const useBazarStats = () => {
+export const useBazarStats = (year?: number, month?: number) => {
   return useQuery({
-    queryKey: bazarKeys.stats(),
-    queryFn: () => bazarApi.getStats(),
+    queryKey: [...bazarKeys.stats(), year, month],
+    queryFn: () => bazarApi.getStats(year, month),
     select: (data) => data.data,
   });
 };

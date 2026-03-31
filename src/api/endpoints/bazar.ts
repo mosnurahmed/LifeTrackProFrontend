@@ -103,7 +103,13 @@ export const toggleItem = (listId: string, itemId: string) =>
   client.patch(`/bazar/${listId}/items/${itemId}/toggle`);
 
 // Get statistics
-export const getStats = () => client.get('/bazar/stats');
+export const getStats = (year?: number, month?: number) => {
+  const params = new URLSearchParams();
+  if (year) params.append('year', String(year));
+  if (month) params.append('month', String(month));
+  const qs = params.toString();
+  return client.get(`/bazar/stats${qs ? `?${qs}` : ''}`);
+};
 
 const bazarApi = {
   getAll,
