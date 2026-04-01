@@ -58,13 +58,13 @@ const ExpenseStatsScreen: React.FC = () => {
   );
 
   const stats = statsData?.data;
-  const dailyExpenses: any[] = dailyData?.data || [];
+  const dailyExpenses: any[] = useMemo(() => dailyData?.data || [], [dailyData]);
 
-  // Period totals from daily data
-  const periodTotal = useMemo(
-    () => dailyExpenses.reduce((sum, d) => sum + (d.total || 0), 0),
-    [dailyExpenses],
-  );
+  // Period totals — use stats API for "This Month" (accurate), daily data for others
+  const periodTotal = useMemo(() => {
+    if (selectedPeriodIdx === 0 && stats?.thisMonth?.total) return stats.thisMonth.total;
+    return dailyExpenses.reduce((sum, d) => sum + (d.total || 0), 0);
+  }, [dailyExpenses, stats, selectedPeriodIdx]);
 
   const periodCount = useMemo(
     () => dailyExpenses.reduce((sum, d) => sum + (d.count || 0), 0),

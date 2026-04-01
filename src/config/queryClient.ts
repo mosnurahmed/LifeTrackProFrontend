@@ -1,31 +1,30 @@
 /**
- * React Query Configuration
- * 
- * Centralized query client with default options
+ * React Query Configuration — with AsyncStorage persistence
+ * Data persists offline + across app restarts.
  */
 
 import { QueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Stale time: Data fresh থাকবে কতক্ষণ
-      staleTime: 30 * 1000, // 30 seconds — data fresh for 30s
-
-      cacheTime: 10 * 60 * 1000, // 10 minutes cache
-
+      staleTime: 30 * 1000,       // 30s fresh
+      gcTime: 24 * 60 * 60 * 1000, // 24hr cache (was cacheTime)
       retry: 2,
-
-      refetchOnWindowFocus: true, // refetch when app comes to foreground
-
+      refetchOnWindowFocus: true,
       refetchOnReconnect: true,
-
-      refetchOnMount: true // refetch stale data on screen mount
+      refetchOnMount: true,
     },
-    
     mutations: {
-      // Retry: Mutation failed হলে চেষ্টা করবে না
-      retry: 0
-    }
-  }
+      retry: 0,
+    },
+  },
+});
+
+export const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: 'lifetrack-query-cache',
+  throttleTime: 1000, // Save at most once per second
 });

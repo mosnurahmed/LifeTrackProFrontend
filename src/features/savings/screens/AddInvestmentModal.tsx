@@ -50,6 +50,7 @@ interface FormValues {
   tenureMonths: string;
   startDate: Date;
   recurringDay: string;
+  paidInstallments: string;
   note: string;
 }
 
@@ -91,6 +92,7 @@ const AddInvestmentModal: React.FC = () => {
       tenureMonths: '',
       startDate: new Date(),
       recurringDay: '',
+      paidInstallments: '',
       note: '',
     },
   });
@@ -146,6 +148,9 @@ const AddInvestmentModal: React.FC = () => {
     if (data.note.trim()) payload.note = data.note.trim();
     if (isRecurring(data.type) && data.recurringDay) {
       payload.recurringDay = parseInt(data.recurringDay);
+    }
+    if (!isEditMode && isRecurring(data.type) && data.paidInstallments) {
+      payload.paidInstallments = parseInt(data.paidInstallments);
     }
 
     if (isEditMode) {
@@ -350,6 +355,31 @@ const AddInvestmentModal: React.FC = () => {
           </View>
         )}
 
+        {/* Already Paid Installments (only for new recurring) */}
+        {!isEditMode && isRecurring(selectedType) && (
+          <View style={s.field}>
+            <Text style={[s.label, { color: textSec }]}>Already Paid Installments</Text>
+            <Text style={[s.hint, { color: isDark ? '#475569' : '#94A3B8' }]}>
+              If you started this before using the app, enter how many months you've already paid
+            </Text>
+            <Controller
+              control={control}
+              name="paidInstallments"
+              rules={{ validate: v => !v || (parseInt(v) >= 0 && parseInt(v) < 999) || 'Invalid' }}
+              render={({ field: { onChange, value } }) => (
+                <TextInput
+                  style={[s.input, { backgroundColor: surfaceC, borderColor: borderC, color: textPri }]}
+                  placeholder="0 (skip if new)"
+                  placeholderTextColor={isDark ? '#475569' : '#CBD5E1'}
+                  keyboardType="number-pad"
+                  value={value}
+                  onChangeText={onChange}
+                />
+              )}
+            />
+          </View>
+        )}
+
         {/* Maturity Preview */}
         {maturityAmount > 0 && (
           <View style={[s.maturityCard, { backgroundColor: `${typeInfo.color}10`, borderColor: `${typeInfo.color}30` }]}>
@@ -456,6 +486,7 @@ const s = StyleSheet.create({
   inputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 10, paddingRight: 12 },
   suffix: { fontSize: 12, fontWeight: '600' },
   error: { fontSize: 11, color: '#EF4444', marginTop: 4 },
+  hint: { fontSize: 11, lineHeight: 16, marginBottom: 8 },
 
   typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   typeChip: {
