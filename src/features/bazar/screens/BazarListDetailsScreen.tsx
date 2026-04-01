@@ -4,7 +4,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, Text, StyleSheet, SectionList, TouchableOpacity,
   RefreshControl,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -46,7 +46,7 @@ const ItemRow = ({
           {item.name}
         </Text>
         <Text style={[styles.itemMeta, { color: textSec }]} numberOfLines={1}>
-          {item.quantity} {item.unit}{item.category ? ` · ${item.category}` : ''}{item.notes ? ` · ${item.notes}` : ''}
+          {item.quantity} {item.unit}{item.category ? ` · ${item.category}` : ''}
         </Text>
       </View>
 
@@ -130,14 +130,46 @@ const BazarListDetailsScreen: React.FC = () => {
     }
   };
 
-  const sortedItems = useMemo(() => {
+  // Group items by date — newest first, with section headers
+  const sections = useMemo(() => {
     if (!list?.items) return [];
-    return [...list.items].sort((a: any, b: any) => {
-      const aPurch = optimisticToggles[a._id] ?? a.isPurchased;
-      const bPurch = optimisticToggles[b._id] ?? b.isPurchased;
-      return Number(aPurch) - Number(bPurch);
+
+    const now = new Date();
+    const todayKey = now.toISOString().split('T')[0];
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayKey = yesterday.toISOString().split('T')[0];
+
+    const getLabel = (key: string) => {
+      if (key === todayKey) return 'Today';
+      if (key === yesterdayKey) return 'Yesterday';
+      const d = new Date(key + 'T00:00:00');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    };
+
+    // Sort items by purchasedAt or createdAt desc, then group
+    const sorted = [...list.items].sort((a: any, b: any) => {
+      const aDate = a.purchasedAt || a.createdAt || '';
+      const bDate = b.purchasedAt || b.createdAt || '';
+      return new Date(bDate).getTime() - new Date(aDate).getTime();
     });
-  }, [list?.items, optimisticToggles]);
+
+    const groups: Record<string, any[]> = {};
+    sorted.forEach((item: any) => {
+      const dateKey = (item.purchasedAt || item.createdAt || new Date().toISOString()).split('T')[0];
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(item);
+    });
+
+    return Object.keys(groups)
+      .sort((a, b) => b.localeCompare(a))
+      .map(dateKey => ({
+        title: getLabel(dateKey),
+        dateKey,
+        data: groups[dateKey],
+      }));
+  }, [list?.items]);
 
   const pct = Math.min(list?.completionPercentage ?? 0, 100);
 
@@ -172,13 +204,14 @@ const BazarListDetailsScreen: React.FC = () => {
         }
       />
 
-      <FlatList
-        data={sortedItems}
+      <SectionList
+        sections={sections}
         keyExtractor={(item: any) => item._id}
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={refetch}
             colors={[colors.primary]} tintColor={colors.primary} />
         }
+        stickySectionHeadersEnabled={false}
         ListHeaderComponent={
           <>
             {/* Summary Card */}
@@ -234,17 +267,31 @@ const BazarListDetailsScreen: React.FC = () => {
 
             {/* Items header */}
             <View style={styles.itemsHeader}>
-              <Text style={[styles.itemsTitle, { color: textPri }]}>Items</Text>
+              <View>
+                <Text style={[styles.itemsTitle, { color: textPri }]}>Shodai List</Text>
+                <Text style={[styles.itemsSubtitle, { color: textSec }]}>
+                  {list.completedItems}/{list.totalItems} purchased
+                </Text>
+              </View>
               <TouchableOpacity
                 style={[styles.addItemBtn, { backgroundColor: colors.primary }]}
                 onPress={() => (navigation as any).navigate('AddBazarItem', { listId, mode: 'create' })}
               >
-                <Icon name="add" size={14} color="#FFF" />
-                <Text style={styles.addItemBtnText}>Add</Text>
+                <Icon name="add-circle-outline" size={16} color="#FFF" />
+                <Text style={styles.addItemBtnText}>Add Item</Text>
               </TouchableOpacity>
             </View>
           </>
         }
+        renderSectionHeader={({ section }) => {
+          const dayTotal = section.data.reduce((s: number, i: any) => s + (i.actualPrice || 0), 0);
+          return (
+            <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
+              <Text style={[styles.sectionDate, { color: textPri }]}>{section.title}</Text>
+              <Text style={[styles.sectionTotal, { color: colors.primary }]}>{formatCurrency(dayTotal)}</Text>
+            </View>
+          );
+        }}
         renderItem={({ item }: { item: any }) => (
           <ItemRow
             item={item}
@@ -285,9 +332,13 @@ const styles = StyleSheet.create({
   estText: { fontSize: 12 },
 
   itemsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 8 },
-  itemsTitle: { fontSize: 14, fontWeight: '700' },
-  addItemBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
-  addItemBtnText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8, marginTop: 4 },
+  sectionDate: { fontSize: 13, fontWeight: '700' },
+  sectionTotal: { fontSize: 13, fontWeight: '700' },
+  itemsTitle: { fontSize: 15, fontWeight: '700' },
+  itemsSubtitle: { fontSize: 11, marginTop: 2 },
+  addItemBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16 },
+  addItemBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
 
   listContent: { paddingBottom: 40 },
 
@@ -296,7 +347,7 @@ const styles = StyleSheet.create({
   itemInfo: { flex: 1 },
   itemName: { fontSize: 14, fontWeight: '600' },
   itemStrike: { textDecorationLine: 'line-through' },
-  itemMeta: { fontSize: 11, marginTop: 2, textTransform: 'capitalize' },
+  itemMeta: { fontSize: 11, marginTop: 2 },
   priceText: { fontSize: 13, fontWeight: '700' },
 
   emptyItems: { alignItems: 'center', paddingTop: 40, gap: 8 },

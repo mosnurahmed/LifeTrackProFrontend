@@ -46,6 +46,24 @@ export const useBazarStats = (year?: number, month?: number) => {
   });
 };
 
+// Monthly bazar budget
+export const useMonthlyBazarBudget = (year: number, month: number) => useQuery({
+  queryKey: ['bazar-budget', year, month],
+  queryFn: () => bazarApi.getMonthlyBudget(year, month),
+  select: (res) => res.data?.data?.budget ?? 0,
+});
+
+export const useSetMonthlyBazarBudget = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ year, month, budget }: { year: number; month: number; budget: number }) =>
+      bazarApi.setMonthlyBudget(year, month, budget),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['bazar-budget', vars.year, vars.month] });
+    },
+  });
+};
+
 // Create list
 export const useCreateList = () => {
   const queryClient = useQueryClient();

@@ -10,7 +10,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PieChart } from 'react-native-chart-kit';
+import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '../../../hooks/useTheme';
 import { useBazarStats } from '../../../hooks/api/useBazar';
 import { Spinner, ErrorState, useGuide } from '../../../components/common';
@@ -48,17 +48,14 @@ const BazarStatsScreen: React.FC = () => {
   const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
   const borderC = isDark ? '#334155' : '#F1F5F9';
 
-  // Pie chart — filter out 0 values
-  const pieData = stats && stats.totalLists > 0 ? [
-    ...(stats.completedLists > 0 ? [{ name: `Done (${stats.completedLists})`, population: stats.completedLists, color: '#22C55E', legendFontColor: textPri, legendFontSize: 11 }] : []),
-    ...(stats.activeLists > 0 ? [{ name: `Active (${stats.activeLists})`, population: stats.activeLists, color: '#3B82F6', legendFontColor: textPri, legendFontSize: 11 }] : []),
-  ] : [];
-
-  const chartConfig = {
-    backgroundGradientFrom: surfaceC,
-    backgroundGradientTo: surfaceC,
-    color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-  };
+  // Donut chart segments for overview
+  const DONUT_R = 50;
+  const DONUT_CIRCUM = 2 * Math.PI * DONUT_R;
+  const totalLists = stats?.totalLists || 0;
+  const doneLists = stats?.completedLists || 0;
+  const activeLists = stats?.activeLists || 0;
+  const donePct = totalLists > 0 ? doneLists / totalLists : 0;
+  const activePct = totalLists > 0 ? activeLists / totalLists : 0;
 
   const header = (
     <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: surfaceC, borderBottomColor: borderC }]}>
@@ -121,42 +118,84 @@ const BazarStatsScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Pie Chart */}
-        {pieData.length > 0 && (
-          <View style={[styles.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
-            <View style={styles.cardHeader}>
-              <Icon name="pie-chart-outline" size={16} color={colors.primary} />
-              <Text style={[styles.cardTitle, { color: textPri }]}>Lists Overview</Text>
-            </View>
-            <PieChart
-              data={pieData}
-              width={width - 64}
-              height={160}
-              chartConfig={chartConfig}
-              accessor="population"
-              backgroundColor="transparent"
-              paddingLeft="15"
-              center={[10, 0]}
-              absolute
-            />
+        {/* Overview Card — Donut + Stats */}
+        <View style={[styles.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
+          <View style={styles.cardHeader}>
+            <Icon name="analytics-outline" size={16} color={colors.primary} />
+            <Text style={[styles.cardTitle, { color: textPri }]}>Overview</Text>
           </View>
-        )}
 
-        {/* Spending */}
+          <View style={styles.overviewRow}>
+            {/* Donut Chart */}
+            <View style={styles.donutWrap}>
+              <Svg width={120} height={120} viewBox="0 0 120 120">
+                {/* Background */}
+                <Circle cx="60" cy="60" r={DONUT_R} stroke={borderC} strokeWidth={10} fill="none" />
+                {/* Done segment (green) */}
+                <Circle cx="60" cy="60" r={DONUT_R}
+                  stroke="#22C55E" strokeWidth={10} fill="none"
+                  strokeDasharray={`${donePct * DONUT_CIRCUM} ${DONUT_CIRCUM}`}
+                  strokeDashoffset={0} strokeLinecap="round"
+                  transform="rotate(-90 60 60)"
+                />
+                {/* Active segment (blue) */}
+                <Circle cx="60" cy="60" r={DONUT_R}
+                  stroke="#3B82F6" strokeWidth={10} fill="none"
+                  strokeDasharray={`${activePct * DONUT_CIRCUM} ${DONUT_CIRCUM}`}
+                  strokeDashoffset={-donePct * DONUT_CIRCUM}
+                  strokeLinecap="round"
+                  transform="rotate(-90 60 60)"
+                />
+              </Svg>
+              <View style={styles.donutCenter}>
+                <Text style={[styles.donutVal, { color: textPri }]}>{totalLists}</Text>
+                <Text style={[styles.donutLabel, { color: textSec }]}>lists</Text>
+              </View>
+            </View>
+
+            {/* Stats */}
+            <View style={styles.overviewStats}>
+              {[
+                { icon: 'checkmark-circle', color: '#22C55E', label: 'Completed', val: doneLists },
+                { icon: 'time-outline', color: '#3B82F6', label: 'Active', val: activeLists },
+                { icon: 'bag-outline', color: '#F59E0B', label: 'Total Items', val: stats.totalItems || 0 },
+                { icon: 'cart-outline', color: '#8B5CF6', label: 'Purchased', val: stats.purchasedItems || 0 },
+              ].map((s, i) => (
+                <View key={i} style={styles.overviewStatRow}>
+                  <View style={[styles.overviewStatDot, { backgroundColor: `${s.color}15` }]}>
+                    <Icon name={s.icon} size={13} color={s.color} />
+                  </View>
+                  <Text style={[styles.overviewStatLabel, { color: textSec }]}>{s.label}</Text>
+                  <Text style={[styles.overviewStatVal, { color: textPri }]}>{s.val}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Legend */}
+          <View style={styles.legendRow}>
+            <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: '#22C55E' }]} /><Text style={[styles.legendText, { color: textSec }]}>Done</Text></View>
+            <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: '#3B82F6' }]} /><Text style={[styles.legendText, { color: textSec }]}>Active</Text></View>
+          </View>
+        </View>
+
+        {/* Spending Summary */}
         <View style={[styles.card, { backgroundColor: surfaceC, borderColor: borderC }]}>
           <View style={styles.cardHeader}>
             <Icon name="wallet-outline" size={16} color={colors.primary} />
             <Text style={[styles.cardTitle, { color: textPri }]}>Spending</Text>
           </View>
-          <View style={styles.spendRow}>
+          <View style={styles.spendGrid}>
             {[
-              { label: 'Total Spent', val: formatCurrency(stats.totalSpent || 0), color: textPri },
-              { label: `${MONTHS[selMonth - 1]}`, val: formatCurrency(stats.thisMonthSpent || 0), color: '#4A9B6E' },
-              { label: 'Avg/List', val: formatCurrency(stats.averagePerList || 0), color: '#D4956A' },
+              { label: 'Total Spent', val: formatCurrency(stats.totalSpent || 0), icon: 'cash-outline', color: textPri },
+              { label: `${MONTHS[selMonth - 1]} Spent`, val: formatCurrency(stats.thisMonthSpent || 0), icon: 'calendar-outline', color: '#10B981' },
+              { label: 'Avg per List', val: formatCurrency(stats.averagePerList || 0), icon: 'bar-chart-outline', color: '#F59E0B' },
+              { label: 'Total Budget', val: formatCurrency(stats.totalBudget || 0), icon: 'pie-chart-outline', color: '#3B82F6' },
             ].map((s, i) => (
-              <View key={i} style={[styles.spendItem, i < 2 && { borderRightWidth: 1, borderRightColor: borderC }]}>
-                <Text style={[styles.spendVal, { color: s.color }]}>{s.val}</Text>
-                <Text style={[styles.spendLabel, { color: textSec }]}>{s.label}</Text>
+              <View key={i} style={[styles.spendCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
+                <Icon name={s.icon} size={14} color={s.color} />
+                <Text style={[styles.spendCardVal, { color: s.color }]}>{s.val}</Text>
+                <Text style={[styles.spendCardLabel, { color: textSec }]}>{s.label}</Text>
               </View>
             ))}
           </View>
@@ -291,10 +330,27 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   cardTitle: { fontSize: 14, fontWeight: '700' },
 
-  spendRow: { flexDirection: 'row' },
-  spendItem: { flex: 1, alignItems: 'center', paddingVertical: 4 },
-  spendVal: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
-  spendLabel: { fontSize: 11 },
+  // Overview
+  overviewRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 12 },
+  donutWrap: { width: 120, height: 120, justifyContent: 'center', alignItems: 'center' },
+  donutCenter: { position: 'absolute', alignItems: 'center' },
+  donutVal: { fontSize: 22, fontWeight: '800' },
+  donutLabel: { fontSize: 10 },
+  overviewStats: { flex: 1, gap: 8 },
+  overviewStatRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  overviewStatDot: { width: 26, height: 26, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  overviewStatLabel: { flex: 1, fontSize: 12 },
+  overviewStatVal: { fontSize: 14, fontWeight: '700' },
+  legendRow: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontSize: 11 },
+
+  // Spending grid
+  spendGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  spendCard: { width: '48%' as any, borderRadius: 10, padding: 10, gap: 3 },
+  spendCardVal: { fontSize: 14, fontWeight: '700' },
+  spendCardLabel: { fontSize: 10 },
 
   listRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, gap: 10 },
   rank: { width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },

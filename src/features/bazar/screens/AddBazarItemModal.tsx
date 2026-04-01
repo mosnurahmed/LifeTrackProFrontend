@@ -200,8 +200,8 @@ const AddBazarItemModal: React.FC = () => {
                       style={styles.qtyBtn}
                       onPress={() => {
                         const v = Math.max(
-                          parseFloat(value?.toString() || '1') - 1,
-                          0.5,
+                          parseFloat(value?.toString() || '1') - 0.5,
+                          0.25,
                         );
                         onChange(v);
                       }}
@@ -212,22 +212,26 @@ const AddBazarItemModal: React.FC = () => {
                       style={[styles.qtyVal, { color: textPri }]}
                       value={String(value)}
                       onChangeText={t => {
+                        // Allow typing decimal: "0.", "1.", "2.5"
+                        if (t === '' || t === '.' || t.endsWith('.')) {
+                          onChange(t as any);
+                          return;
+                        }
                         const n = parseFloat(t);
-                        if (!isNaN(n) && n > 0) onChange(n);
-                        else if (t === '' || t === '0') onChange(t as any);
+                        if (!isNaN(n) && n >= 0) onChange(n);
                       }}
                       onBlur={() => {
                         const n = parseFloat(String(value));
                         if (isNaN(n) || n <= 0) onChange(1);
                       }}
-                      keyboardType="numeric"
+                      keyboardType="decimal-pad"
                       selectTextOnFocus
                       textAlign="center"
                     />
                     <TouchableOpacity
                       style={styles.qtyBtn}
                       onPress={() => {
-                        const v = parseFloat(value?.toString() || '1') + 1;
+                        const v = parseFloat(value?.toString() || '1') + 0.5;
                         onChange(v);
                       }}
                     >

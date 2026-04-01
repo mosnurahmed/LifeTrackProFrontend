@@ -5,12 +5,12 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, ScrollView,
+  RefreshControl, Modal, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../../hooks/useTheme';
-import { useBazarLists, useDeleteList } from '../../../hooks/api/useBazar';
+import { useBazarLists, useDeleteList, useMonthlyBazarBudget, useSetMonthlyBazarBudget } from '../../../hooks/api/useBazar';
 import { AppHeader, useConfirm, useGuide } from '../../../components/common';
 import { BazarSkeleton } from '../../../components/common/Loading/ScreenSkeletons';
 import { formatCurrency } from '../../../utils/formatters';
@@ -85,15 +85,35 @@ const ListCard = ({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 const BazarScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const { actionSheet, confirm } = useConfirm();
   const { GuideButton, GuideView } = useGuide('bazar');
-  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+
+  const now = new Date();
+  const [selYear, setSelYear] = useState(now.getFullYear());
+  const [selMonth, setSelMonth] = useState(now.getMonth());
+  const isCurrentMonth = selYear === now.getFullYear() && selMonth === now.getMonth();
+
+  const goPrev = () => {
+    if (selMonth === 0) { setSelMonth(11); setSelYear(y => y - 1); }
+    else setSelMonth(m => m - 1);
+  };
+  const goNext = () => {
+    if (isCurrentMonth) return;
+    if (selMonth === 11) { setSelMonth(0); setSelYear(y => y + 1); }
+    else setSelMonth(m => m + 1);
+  };
 
   const { data: listsData, isLoading, refetch, isRefetching } = useBazarLists();
   const deleteMutation = useDeleteList();
+  const { data: monthlyBudget = 0 } = useMonthlyBazarBudget(selYear, selMonth + 1);
+  const setBudgetMutation = useSetMonthlyBazarBudget();
+  const [budgetModal, setBudgetModal] = useState(false);
+  const [budgetInput, setBudgetInput] = useState('');
 
   const allLists = listsData?.data?.data ?? [];
 
@@ -102,17 +122,27 @@ const BazarScreen: React.FC = () => {
   const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
   const borderC = isDark ? '#334155' : '#F1F5F9';
 
-  const stats = useMemo(() => ({
-    total:     allLists.length,
-    active:    allLists.filter((l: any) => !l.isCompleted).length,
-    completed: allLists.filter((l: any) =>  l.isCompleted).length,
-  }), [allLists]);
+  // Filter by selected month
+  const monthLists = useMemo(() => {
+    const mStart = new Date(selYear, selMonth, 1);
+    const mEnd = new Date(selYear, selMonth + 1, 0, 23, 59, 59, 999);
+    return allLists.filter((l: any) => {
+      const d = new Date(l.createdAt);
+      return d >= mStart && d <= mEnd;
+    });
+  }, [allLists, selYear, selMonth]);
 
-  const filtered = useMemo(() => {
-    if (filter === 'active')    return allLists.filter((l: any) => !l.isCompleted);
-    if (filter === 'completed') return allLists.filter((l: any) =>  l.isCompleted);
-    return allLists;
-  }, [allLists, filter]);
+  const monthStats = useMemo(() => {
+    const active = monthLists.filter((l: any) => !l.isCompleted).length;
+    const completed = monthLists.filter((l: any) => l.isCompleted).length;
+    const totalSpent = monthLists.reduce((s: number, l: any) => {
+      const spent = l.totalActualCost > 0 ? l.totalActualCost
+        : (l.items || []).filter((i: any) => i.isPurchased).reduce((ss: number, i: any) => ss + (i.actualPrice || 0), 0);
+      return s + spent;
+    }, 0);
+    const totalBudget = monthLists.reduce((s: number, l: any) => s + (l.totalBudget || 0), 0);
+    return { total: monthLists.length, active, completed, totalSpent, totalBudget };
+  }, [monthLists]);
 
   const handleLongPress = async (item: any) => {
     const result = await actionSheet({
@@ -159,68 +189,102 @@ const BazarScreen: React.FC = () => {
         }
       />
 
-      {/* Summary */}
-      {allLists.length > 0 && (
-        <View style={[styles.summaryRow, { borderBottomColor: borderC }]}>
-          {[
-            { label: 'Total', value: stats.total },
-            { label: 'Active', value: stats.active },
-            { label: 'Done', value: stats.completed },
-          ].map((s, i) => (
-            <View key={s.label} style={[styles.summaryItem, i < 2 && { borderRightWidth: 1, borderRightColor: borderC }]}>
-              <Text style={[styles.summaryVal, { color: textPri }]}>{s.value}</Text>
-              <Text style={[styles.summaryLabel, { color: textSec }]}>{s.label}</Text>
-            </View>
-          ))}
-        </View>
-      )}
+      {/* Month Navigator */}
+      <View style={[styles.monthNav, { borderBottomColor: borderC }]}>
+        <TouchableOpacity style={[styles.monthBtn, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]} onPress={goPrev}>
+          <Icon name="chevron-back" size={18} color={textPri} />
+        </TouchableOpacity>
+        <Text style={[styles.monthText, { color: textPri }]}>
+          {MONTHS[selMonth]} {selYear}
+        </Text>
+        <TouchableOpacity
+          style={[styles.monthBtn, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }, isCurrentMonth && { opacity: 0.3 }]}
+          onPress={goNext} disabled={isCurrentMonth}
+        >
+          <Icon name="chevron-forward" size={18} color={textPri} />
+        </TouchableOpacity>
+      </View>
 
-      {/* Filter */}
-      {allLists.length > 0 && (
-        <View style={[styles.filterBar, { borderBottomColor: borderC }]}>
-          {(['all', 'active', 'completed'] as const).map(f => {
-            const isActive = filter === f;
-            return (
-              <TouchableOpacity
-                key={f}
-                style={[styles.filterTab, isActive && styles.filterTabActive]}
-                onPress={() => setFilter(f)}
-              >
-                <Text style={[styles.filterText, { color: isActive ? colors.primary : textSec }]}>
-                  {f.charAt(0).toUpperCase() + f.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+      {/* Monthly Overview */}
+      <View style={[styles.overviewCard, { backgroundColor: surfaceC, borderColor: borderC }]}>
+        <View style={styles.overviewRow}>
+          <View style={styles.overviewItem}>
+            <Text style={[styles.overviewVal, { color: textPri }]}>{monthStats.total}</Text>
+            <Text style={[styles.overviewLabel, { color: textSec }]}>Lists</Text>
+          </View>
+          <View style={[styles.overviewDivider, { backgroundColor: borderC }]} />
+          <View style={styles.overviewItem}>
+            <Text style={[styles.overviewVal, { color: '#10B981' }]}>{monthStats.completed}</Text>
+            <Text style={[styles.overviewLabel, { color: textSec }]}>Done</Text>
+          </View>
+          <View style={[styles.overviewDivider, { backgroundColor: borderC }]} />
+          <View style={styles.overviewItem}>
+            <Text style={[styles.overviewVal, { color: colors.primary }]}>{monthStats.active}</Text>
+            <Text style={[styles.overviewLabel, { color: textSec }]}>Active</Text>
+          </View>
         </View>
-      )}
+
+        {/* Spending vs Monthly Budget */}
+        <View style={[styles.spendingRow, { borderTopColor: borderC }]}>
+          <View>
+            <Text style={[styles.spendLabel, { color: textSec }]}>Spent</Text>
+            <Text style={[styles.spendVal, { color: monthlyBudget > 0 && monthStats.totalSpent > monthlyBudget ? '#EF4444' : textPri }]}>
+              {formatCurrency(monthStats.totalSpent)}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={{ alignItems: 'flex-end' }}
+            onPress={() => { setBudgetInput(monthlyBudget > 0 ? String(monthlyBudget) : ''); setBudgetModal(true); }}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.spendLabel, { color: textSec }]}>Monthly Budget</Text>
+            {monthlyBudget > 0 ? (
+              <Text style={[styles.spendVal, { color: '#10B981' }]}>{formatCurrency(monthlyBudget)}</Text>
+            ) : (
+              <Text style={[styles.setBudgetText, { color: colors.primary }]}>Set Budget</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Budget progress bar */}
+        {monthlyBudget > 0 && (
+          <>
+            <View style={[styles.budgetBar, { backgroundColor: borderC }]}>
+              <View style={[styles.budgetBarFill, {
+                width: `${Math.min((monthStats.totalSpent / monthlyBudget) * 100, 100)}%` as any,
+                backgroundColor: monthStats.totalSpent > monthlyBudget ? '#EF4444' : colors.primary,
+              }]} />
+            </View>
+            <Text style={[styles.budgetPct, { color: monthStats.totalSpent > monthlyBudget ? '#EF4444' : textSec }]}>
+              {Math.round((monthStats.totalSpent / monthlyBudget) * 100)}% of budget used · {formatCurrency(Math.max(monthlyBudget - monthStats.totalSpent, 0))} remaining
+            </Text>
+          </>
+        )}
+      </View>
 
       {/* List */}
-      {allLists.length === 0 ? (
+      {monthLists.length === 0 ? (
         <View style={styles.emptyWrap}>
           <View style={[styles.emptyIconWrap, { backgroundColor: `${colors.primary}12` }]}>
             <Icon name="cart-outline" size={40} color={colors.primary} />
           </View>
-          <Text style={[styles.emptyTitle, { color: textPri }]}>No Shopping Lists</Text>
+          <Text style={[styles.emptyTitle, { color: textPri }]}>No lists in {MONTHS[selMonth]}</Text>
           <Text style={[styles.emptyHint, { color: textSec }]}>
-            Create your first list to track shopping
+            {isCurrentMonth ? 'Create your first list' : 'No shopping this month'}
           </Text>
-          <TouchableOpacity
-            style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
-            onPress={() => (navigation as any).navigate('AddBazarList', { mode: 'create' })}
-          >
-            <Icon name="add" size={16} color="#FFF" />
-            <Text style={styles.emptyBtnText}>Create List</Text>
-          </TouchableOpacity>
-        </View>
-      ) : filtered.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <Icon name="filter-outline" size={36} color={textSec} />
-          <Text style={[styles.emptyTitle, { color: textSec }]}>No {filter} lists</Text>
+          {isCurrentMonth && (
+            <TouchableOpacity
+              style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
+              onPress={() => (navigation as any).navigate('AddBazarList', { mode: 'create' })}
+            >
+              <Icon name="add" size={16} color="#FFF" />
+              <Text style={styles.emptyBtnText}>Create List</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <FlatList
-          data={filtered}
+          data={monthLists}
           keyExtractor={item => item._id}
           renderItem={({ item }) => (
             <ListCard
@@ -247,6 +311,53 @@ const BazarScreen: React.FC = () => {
       >
         <Icon name="add" size={22} color="#FFFFFF" />
       </TouchableOpacity>
+
+      {/* Monthly Budget Modal */}
+      <Modal visible={budgetModal} transparent animationType="slide" onRequestClose={() => setBudgetModal(false)}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={[styles.modalSheet, { backgroundColor: surfaceC }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: borderC }]}>
+              <TouchableOpacity onPress={() => setBudgetModal(false)}>
+                <Text style={[styles.modalCancel, { color: textSec }]}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: textPri }]}>{MONTHS[selMonth]} Budget</Text>
+              <TouchableOpacity onPress={() => {
+                const val = parseFloat(budgetInput) || 0;
+                setBudgetMutation.mutate({ year: selYear, month: selMonth + 1, budget: val });
+                setBudgetModal(false);
+              }}>
+                <Text style={[styles.modalDone, { color: colors.primary }]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={[styles.modalLabel, { color: textSec }]}>Set monthly shopping budget</Text>
+              <View style={[styles.modalInputWrap, { borderColor: borderC, backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
+                <Text style={[styles.modalCurrency, { color: textSec }]}>৳</Text>
+                <TextInput
+                  style={[styles.modalInput, { color: textPri }]}
+                  value={budgetInput}
+                  onChangeText={setBudgetInput}
+                  keyboardType="number-pad"
+                  placeholder="0"
+                  placeholderTextColor={isDark ? '#475569' : '#CBD5E1'}
+                  autoFocus
+                />
+              </View>
+              {monthlyBudget > 0 && (
+                <TouchableOpacity
+                  style={styles.removeBudgetBtn}
+                  onPress={() => {
+                    setBudgetMutation.mutate({ year: selYear, month: selMonth + 1, budget: 0 });
+                    setBudgetModal(false);
+                  }}
+                >
+                  <Text style={styles.removeBudgetText}>Remove Budget</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -265,15 +376,40 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4,
   },
 
-  summaryRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1 },
-  summaryItem: { flex: 1, alignItems: 'center' },
-  summaryVal: { fontSize: 18, fontWeight: '800', marginBottom: 1 },
-  summaryLabel: { fontSize: 11 },
+  // Month nav
+  monthNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
+  monthBtn: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  monthText: { fontSize: 15, fontWeight: '700' },
 
-  filterBar: { flexDirection: 'row', borderBottomWidth: 1 },
-  filterTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  filterTabActive: { borderBottomColor: '#10B981' },
-  filterText: { fontSize: 13, fontWeight: '600' },
+  // Overview
+  overviewCard: { marginHorizontal: 16, marginTop: 12, borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  overviewRow: { flexDirection: 'row', paddingVertical: 12 },
+  overviewItem: { flex: 1, alignItems: 'center' },
+  overviewVal: { fontSize: 18, fontWeight: '800', marginBottom: 1 },
+  overviewLabel: { fontSize: 11 },
+  overviewDivider: { width: 1, marginVertical: 4 },
+  spendingRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1 },
+  spendLabel: { fontSize: 10, marginBottom: 2 },
+  spendVal: { fontSize: 14, fontWeight: '700' },
+  setBudgetText: { fontSize: 13, fontWeight: '700' },
+  budgetBar: { height: 4, borderRadius: 2, overflow: 'hidden', marginHorizontal: 14, marginBottom: 4 },
+  budgetBarFill: { height: '100%', borderRadius: 2 },
+  budgetPct: { fontSize: 10, textAlign: 'center', marginBottom: 12, paddingHorizontal: 14 },
+
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
+  modalCancel: { fontSize: 14 },
+  modalTitle: { fontSize: 15, fontWeight: '700' },
+  modalDone: { fontSize: 14, fontWeight: '700' },
+  modalBody: { padding: 20 },
+  modalLabel: { fontSize: 13, marginBottom: 12 },
+  modalInputWrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, height: 52 },
+  modalCurrency: { fontSize: 18, fontWeight: '700', marginRight: 8 },
+  modalInput: { flex: 1, fontSize: 22, fontWeight: '700' },
+  removeBudgetBtn: { alignSelf: 'center', marginTop: 16 },
+  removeBudgetText: { fontSize: 13, fontWeight: '600', color: '#EF4444' },
 
   listContent: { padding: 16, paddingBottom: 40 },
 

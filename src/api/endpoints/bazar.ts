@@ -111,6 +111,13 @@ export const getStats = (year?: number, month?: number) => {
   return client.get(`/bazar/stats${qs ? `?${qs}` : ''}`);
 };
 
+// Monthly bazar budget
+export const getMonthlyBudget = (year: number, month: number) =>
+  client.get(`/bazar/budget/${year}/${month}`);
+
+export const setMonthlyBudget = (year: number, month: number, budget: number) =>
+  client.put(`/bazar/budget/${year}/${month}`, { budget });
+
 const bazarApi = {
   getAll,
   getById,
@@ -122,6 +129,8 @@ const bazarApi = {
   deleteItem,
   toggleItem,
   getStats,
+  getMonthlyBudget,
+  setMonthlyBudget,
 };
 
 export default bazarApi;

@@ -60,9 +60,10 @@ const ExpensesScreen: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>();
 
-  const startDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`;
+  // Use local timezone ISO strings so Bangladesh midnight = correct UTC
+  const startDate = new Date(selectedYear, selectedMonth, 1).toISOString();
   const lastDay = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-  const endDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${lastDay}`;
+  const endDate = new Date(selectedYear, selectedMonth, lastDay, 23, 59, 59, 999).toISOString();
 
   const { data: expensesData, isLoading, error, refetch, isRefetching } = useExpenses({
     startDate,
