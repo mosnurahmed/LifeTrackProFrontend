@@ -2,7 +2,7 @@
  * Task Details Screen
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal,
   KeyboardAvoidingView, Platform,
@@ -58,6 +58,27 @@ const TaskDetailsScreen: React.FC = () => {
   const deleteSubtask = useDeleteSubtask();
 
   const task = taskData?.data;
+
+  // Optimistic subtask toggle + lock
+  const [optimisticSubs, setOptimisticSubs] = useState<Record<string, boolean>>({});
+  const [pendingSubs, setPendingSubs] = useState<Set<string>>(new Set());
+
+  const handleSubtaskToggle = useCallback((subtaskId: string, currentCompleted: boolean) => {
+    if (pendingSubs.has(subtaskId)) return;
+    setOptimisticSubs(prev => ({ ...prev, [subtaskId]: !currentCompleted }));
+    setPendingSubs(prev => new Set(prev).add(subtaskId));
+    updateSubtask.mutate(
+      { taskId, subtaskId, data: { completed: !currentCompleted } },
+      {
+        onError: () => {
+          setOptimisticSubs(prev => { const n = { ...prev }; delete n[subtaskId]; return n; });
+        },
+        onSettled: () => {
+          setPendingSubs(prev => { const s = new Set(prev); s.delete(subtaskId); return s; });
+        },
+      },
+    );
+  }, [taskId, updateSubtask, pendingSubs]);
 
   const handleDelete = async () => {
     const ok = await confirm({ title: 'Delete Task', message: `Delete "${task?.title}"?`, confirmText: 'Delete', variant: 'danger' });
@@ -264,23 +285,25 @@ const TaskDetailsScreen: React.FC = () => {
           )}
 
           {task.subtasks && task.subtasks.length > 0 ? (
-            task.subtasks.map((sub: any, idx: number) => (
+            task.subtasks.map((sub: any, idx: number) => {
+              const isChecked = optimisticSubs[sub._id] ?? sub.completed;
+              return (
               <View key={sub._id}>
                 {idx > 0 && <View style={[st.divider, { backgroundColor: borderC }]} />}
                 <View style={st.subtaskRow}>
                   <TouchableOpacity
-                    style={[st.subCheckbox, sub.completed ? { backgroundColor: '#22C55E', borderColor: '#22C55E' } : { borderColor: borderC }]}
-                    onPress={() => updateSubtask.mutate({ taskId, subtaskId: sub._id, data: { completed: !sub.completed } })}
+                    style={[st.subCheckbox, isChecked ? { backgroundColor: '#22C55E', borderColor: '#22C55E' } : { borderColor: borderC }]}
+                    onPress={() => handleSubtaskToggle(sub._id, isChecked)}
                   >
-                    {sub.completed && <Icon name="checkmark" size={10} color="#FFF" />}
+                    {isChecked && <Icon name="checkmark" size={10} color="#FFF" />}
                   </TouchableOpacity>
-                  <Text style={[st.subTitle, { color: textPri }, sub.completed && st.subTitleDone]} numberOfLines={1}>{sub.title}</Text>
+                  <Text style={[st.subTitle, { color: textPri }, isChecked && st.subTitleDone]} numberOfLines={1}>{sub.title}</Text>
                   <TouchableOpacity onPress={() => handleDeleteSubtask(sub._id, sub.title)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Icon name="trash-outline" size={14} color={textSec} />
                   </TouchableOpacity>
                 </View>
               </View>
-            ))
+            );})
           ) : (
             <Text style={[st.emptyText, { color: textSec }]}>No subtasks yet</Text>
           )}

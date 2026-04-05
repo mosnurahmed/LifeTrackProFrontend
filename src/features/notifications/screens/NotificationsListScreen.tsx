@@ -126,20 +126,25 @@ const NotificationsListScreen: React.FC = () => {
     // Navigate based on notification type
     const nav = navigation as any;
     const type = item.type;
+    // Tab screens → navigate to Main (drawer) then screen
+    const goTo = (screen: string) => nav.navigate('Main', { screen });
+
     if (type === 'loan_reminder' || type === 'loan_due_today' || type === 'loan_overdue' || type === 'loan_payment') {
-      nav.navigate('Loans');
+      goTo('Loans');
     } else if (type === 'investment_reminder' || type === 'investment_maturing' || type === 'investment_matured' || type === 'investment_contribution') {
-      nav.navigate('Savings');
+      goTo('Savings');
     } else if (type === 'expense_added') {
-      nav.navigate('Expenses');
+      goTo('HomeTabs');
+      setTimeout(() => nav.navigate('Main', { screen: 'HomeTabs', params: { screen: 'Expenses' } }), 100);
     } else if (type === 'income_added') {
-      nav.navigate('Income');
+      goTo('HomeTabs');
+      setTimeout(() => nav.navigate('Main', { screen: 'HomeTabs', params: { screen: 'Income' } }), 100);
     } else if (type === 'budget_warning' || type === 'budget_exceeded') {
-      nav.navigate('Budget');
+      goTo('Budget');
     } else if (type === 'task_reminder' || type === 'task_due_today') {
-      nav.navigate('Tasks');
+      goTo('Tasks');
     } else if (type === 'savings_milestone' || type === 'savings_completed') {
-      nav.navigate('Savings');
+      goTo('Savings');
     }
   };
 

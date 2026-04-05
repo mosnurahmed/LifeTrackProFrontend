@@ -9,6 +9,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -35,7 +36,7 @@ const SavingsGoalsStatsScreen: React.FC = () => {
   const borderC = isDark ? '#334155' : '#F1F5F9';
 
   const now = new Date();
-  const { data: stats, isLoading, error } = useSavingsStats(now.getFullYear(), now.getMonth() + 1);
+  const { data: stats, isLoading, error, refetch, isRefetching } = useSavingsStats(now.getFullYear(), now.getMonth() + 1);
   const { data: goalsData } = useSavingsGoals();
   const { data: invStats } = useInvestmentStats();
 
@@ -70,7 +71,11 @@ const SavingsGoalsStatsScreen: React.FC = () => {
         right={<GuideButton color={textPri} />}
       />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[colors.primary]} tintColor={colors.primary} />}
+      >
         {/* Summary Row */}
         <View style={s.summaryRow}>
           {[

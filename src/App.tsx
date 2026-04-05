@@ -2,13 +2,13 @@ import React, { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { NavigationContainer } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { ConfirmProvider } from './components/common';
 import { useTheme } from './hooks/useTheme';
 import RootNavigator from './navigation/RootNavigator';
-import { queryClient, asyncStoragePersister } from './config/queryClient';
+import { queryClient } from './config/queryClient';
 import { navigationRef } from './navigation/navigationRef';
 import notificationService from './services/notificationService';
 import { useAuthStore } from './store/authStore';
@@ -23,7 +23,6 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // Initialize notification service only after login
     const initNotifications = async () => {
       try {
         await notificationService.initialize();
@@ -43,7 +42,7 @@ const App: React.FC = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: asyncStoragePersister, maxAge: 24 * 60 * 60 * 1000 }}>
+        <QueryClientProvider client={queryClient}>
           <NavigationContainer ref={navigationRef}>
             <ConfirmProvider>
               <StatusBar
@@ -52,12 +51,10 @@ const App: React.FC = () => {
                 translucent={true}
               />
               <RootNavigator />
-
-              {/* Toast Messages */}
               <Toast />
             </ConfirmProvider>
           </NavigationContainer>
-        </PersistQueryClientProvider>
+        </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

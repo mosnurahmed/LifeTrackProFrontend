@@ -78,12 +78,17 @@ const BazarListDetailsScreen: React.FC = () => {
   const surfaceC = isDark ? '#1E293B' : '#FFFFFF';
   const borderC = isDark ? '#334155' : '#F1F5F9';
 
-  // Optimistic toggle state
+  // Optimistic toggle state + loading lock
   const [optimisticToggles, setOptimisticToggles] = useState<Record<string, boolean>>({});
+  const [pendingItems, setPendingItems] = useState<Set<string>>(new Set());
 
   const handleToggle = useCallback((itemId: string, currentState: boolean) => {
-    // Instant UI flip
+    // Block if already pending
+    if (pendingItems.has(itemId)) return;
+
+    // Instant UI flip + lock
     setOptimisticToggles(prev => ({ ...prev, [itemId]: !currentState }));
+    setPendingItems(prev => new Set(prev).add(itemId));
 
     toggleMutation.mutate(
       { listId, itemId },
@@ -95,18 +100,15 @@ const BazarListDetailsScreen: React.FC = () => {
             delete next[itemId];
             return next;
           });
+          setPendingItems(prev => { const s = new Set(prev); s.delete(itemId); return s; });
         },
-        onSuccess: () => {
-          // Clear optimistic state once server confirms
-          setOptimisticToggles(prev => {
-            const next = { ...prev };
-            delete next[itemId];
-            return next;
-          });
+        onSettled: () => {
+          // Unlock after server responds (success or error handled above)
+          setPendingItems(prev => { const s = new Set(prev); s.delete(itemId); return s; });
         },
       }
     );
-  }, [listId, toggleMutation]);
+  }, [listId, toggleMutation, pendingItems]);
 
   const handleItemLongPress = async (item: any) => {
     const result = await actionSheet({

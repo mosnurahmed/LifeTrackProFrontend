@@ -53,7 +53,7 @@ export const GUIDES: Record<string, { title: string; subtitle: string; steps: Gu
       { icon: 'funnel-outline', title: 'Filter & Search', description: 'Use filter chips to view expenses by time period — Today, This Week, This Month, or All.', color: '#3B82F6' },
       { icon: 'swap-vertical-outline', title: 'Expense List', description: 'Each card shows the category, amount, date, and notes. Tap to see full details. Long press to delete.', color: '#8B5CF6' },
       { icon: 'stats-chart-outline', title: 'Statistics', description: 'Tap the chart icon in the header to see spending analytics — charts, category breakdown, and trends.', color: '#F59E0B' },
-      { icon: 'repeat-outline', title: 'Overview Card', description: 'The top card shows your total spending for the selected period with transaction count.', color: '#EF4444' },
+      { icon: 'repeat-outline', title: 'Recurring Expenses', description: 'Recurring expenses auto-create every day/week/month/year. You\'ll get a phone notification when auto-recorded. View them in the list like regular expenses.', color: '#EF4444' },
     ],
   },
 
@@ -64,7 +64,7 @@ export const GUIDES: Record<string, { title: string; subtitle: string; steps: Gu
       { icon: 'add-circle-outline', title: 'Add Income', description: 'Tap + to record income. Enter amount, select source category, add date and notes.', color: '#10B981' },
       { icon: 'wallet-outline', title: 'Income Sources', description: 'View income grouped by source — Salary, Business, Freelance, Investment, and more.', color: '#3B82F6' },
       { icon: 'stats-chart-outline', title: 'Statistics', description: 'Tap the chart icon to see income analytics, source distribution, and monthly trends.', color: '#F59E0B' },
-      { icon: 'swap-vertical-outline', title: 'Income List', description: 'Each card shows source, amount, and date. Tap for details, long press to delete.', color: '#8B5CF6' },
+      { icon: 'repeat-outline', title: 'Recurring Income', description: 'Set recurring income (like monthly salary) to auto-record every month. You\'ll get a notification when auto-recorded. No need to manually add each time.', color: '#8B5CF6' },
     ],
   },
 
@@ -179,8 +179,9 @@ export const GUIDES: Record<string, { title: string; subtitle: string; steps: Gu
     steps: [
       { icon: 'cash-outline', title: 'Amount', description: 'Enter the expense amount at the top. This is the total you spent.', color: '#EF4444' },
       { icon: 'layers-outline', title: 'Category', description: 'Select a category to organize your expense. You can also create new categories.', color: '#3B82F6' },
-      { icon: 'calendar-outline', title: 'Date', description: 'Pick the date of the expense. Defaults to today.', color: '#F59E0B' },
+      { icon: 'calendar-outline', title: 'Date', description: 'Pick the date of the expense. Defaults to today. Recurring expenses will auto-create on this day every month.', color: '#F59E0B' },
       { icon: 'document-text-outline', title: 'Notes', description: 'Add optional notes to remember what the expense was for.', color: '#8B5CF6' },
+      { icon: 'repeat-outline', title: 'Make Recurring', description: 'Tap "Make Recurring" to auto-repeat this expense. Choose how often — Daily, Weekly, Monthly, or Yearly. A new expense will be created automatically on the same day. Set an optional end date to stop after a certain time. Example: House Rent ৳15,000 Monthly — every month on the same date, a new expense entry is auto-recorded and you\'ll get a notification.', color: '#10B981' },
       { icon: 'image-outline', title: 'Receipt', description: 'Attach a photo of your receipt for reference.', color: '#06B6D4' },
     ],
   },
@@ -213,8 +214,9 @@ export const GUIDES: Record<string, { title: string; subtitle: string; steps: Gu
     steps: [
       { icon: 'cash-outline', title: 'Amount', description: 'Enter the income amount. This adds to your total earnings.', color: '#10B981' },
       { icon: 'layers-outline', title: 'Source', description: 'Select income source — Salary, Business, Freelance, Investment, etc.', color: '#3B82F6' },
-      { icon: 'calendar-outline', title: 'Date', description: 'Pick the date you received the income.', color: '#F59E0B' },
+      { icon: 'calendar-outline', title: 'Date', description: 'Pick the date you received the income. Recurring incomes will auto-create on this day.', color: '#F59E0B' },
       { icon: 'document-text-outline', title: 'Notes', description: 'Add notes like invoice number or payment details.', color: '#8B5CF6' },
+      { icon: 'repeat-outline', title: 'Make Recurring', description: 'Tap "Make Recurring" to auto-repeat this income. Choose frequency — Daily, Weekly, Monthly, or Yearly. A new income entry is auto-recorded on the same day and you\'ll get a phone notification. Example: Salary ৳25,000 Monthly — every month auto-recorded. Set end date to stop after a certain period.', color: '#10B981' },
     ],
   },
 
@@ -449,10 +451,11 @@ export const GUIDES: Record<string, { title: string; subtitle: string; steps: Gu
     title: 'Add Investment',
     subtitle: 'Create a new investment plan',
     steps: [
-      { icon: 'apps-outline', title: 'Type', description: 'Select the type — FD, DPS, SIP, Sanchayapatra, Bond, Insurance, or Custom.', color: '#10B981' },
-      { icon: 'cash-outline', title: 'Amount', description: 'For FD: total deposit. For DPS/SIP: monthly installment amount.', color: '#3B82F6' },
-      { icon: 'calculator-outline', title: 'Interest & Tenure', description: 'Enter annual interest rate and tenure in months. Maturity amount auto-calculates.', color: '#F59E0B' },
-      { icon: 'calendar-outline', title: 'Schedule', description: 'Set start date. For recurring plans, set the monthly payment day (1-28).', color: '#8B5CF6' },
+      { icon: 'apps-outline', title: 'Type', description: 'Select the type — FD (one-time deposit), DPS (monthly deposit), SIP (monthly investment), Sanchayapatra, Bond, Insurance, or Custom.', color: '#10B981' },
+      { icon: 'cash-outline', title: 'Amount', description: 'For FD/Bond/Sanchayapatra: total deposit amount (one-time). For DPS/SIP/Insurance: monthly installment amount that you pay every month.', color: '#3B82F6' },
+      { icon: 'calculator-outline', title: 'Interest & Tenure', description: 'Annual interest rate (%) and tenure in months. Maturity amount auto-calculates showing how much you\'ll get at the end including interest. Example: ৳5,000/month × 60 months at 10% = maturity ৳3,87,500.', color: '#F59E0B' },
+      { icon: 'calendar-outline', title: 'Schedule & Recurring', description: 'Set start date and monthly payment day (1-28) for DPS/SIP. You\'ll get a phone reminder notification on that day each month to add your contribution. Each contribution auto-creates an expense entry.', color: '#8B5CF6' },
+      { icon: 'time-outline', title: 'Already Paid', description: 'If you started this investment before using the app, enter how many installments you\'ve already paid. This adjusts your total deposited and progress correctly without creating expense entries for past payments.', color: '#06B6D4' },
     ],
   },
 

@@ -52,6 +52,10 @@ const TasksScreen: React.FC = () => {
   const deleteMutation = useDeleteTask();
   const updateMutation = useUpdateTaskStatus();
 
+  // Optimistic toggle + lock
+  const [optimisticStatus, setOptimisticStatus] = useState<Record<string, string>>({});
+  const [pendingTasks, setPendingTasks] = useState<Set<string>>(new Set());
+
   const tasks = tasksData?.data?.data ?? [];
   const stats = statsData?.data;
 
@@ -175,13 +179,27 @@ const TasksScreen: React.FC = () => {
           keyExtractor={item => item._id}
           renderItem={({ item }) => (
             <TaskItem
-              task={item}
+              task={{ ...item, status: optimisticStatus[item._id] ?? item.status }}
               onPress={() => (navigation as any).navigate('TaskDetails', { taskId: item._id })}
               onDelete={() => handleDelete(item)}
-              onToggleStatus={() => updateMutation.mutate({
-                id: item._id,
-                status: item.status === 'completed' ? 'todo' : 'completed',
-              })}
+              onToggleStatus={() => {
+                if (pendingTasks.has(item._id)) return;
+                const currentStatus = optimisticStatus[item._id] ?? item.status;
+                const newStatus = currentStatus === 'completed' ? 'todo' : 'completed';
+                setOptimisticStatus(prev => ({ ...prev, [item._id]: newStatus }));
+                setPendingTasks(prev => new Set(prev).add(item._id));
+                updateMutation.mutate(
+                  { id: item._id, status: newStatus },
+                  {
+                    onError: () => {
+                      setOptimisticStatus(prev => { const n = { ...prev }; delete n[item._id]; return n; });
+                    },
+                    onSettled: () => {
+                      setPendingTasks(prev => { const s = new Set(prev); s.delete(item._id); return s; });
+                    },
+                  },
+                );
+              }}
             />
           )}
           contentContainerStyle={st.listContent}
