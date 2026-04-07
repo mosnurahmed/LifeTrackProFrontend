@@ -35,6 +35,7 @@ import { AppHeader, useGuide } from '../../../components/common';
 import { SavingsSkeleton } from '../../../components/common/Loading/ScreenSkeletons';
 import { useConfirm } from '../../../components/common/ConfirmModal';
 import { formatCurrency } from '../../../utils/formatters';
+import { usePrivacy } from '../../../store/privacyStore';
 import type {
   SavingsGoal,
   MonthlyHistoryItem,
@@ -63,6 +64,7 @@ const InvestmentCard = ({
   onDelete: () => void;
   isDark: boolean;
 }) => {
+  const { mask } = usePrivacy();
   const tc = INV_TYPE_CONFIG[inv.type] || INV_TYPE_CONFIG.custom;
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
@@ -110,9 +112,9 @@ const InvestmentCard = ({
 
           <View style={styles.goalBottom}>
             <Text style={[styles.progressAmt, { color: textSec }]}>
-              {formatCurrency(totalDeposited)}
+              {mask(formatCurrency(totalDeposited))}
               <Text style={{ color: isDark ? '#475569' : '#CBD5E1' }}>
-                {' / '}{formatCurrency(maturityAmount)}
+                {' / '}{mask(formatCurrency(maturityAmount))}
               </Text>
             </Text>
             <View style={styles.goalTags}>
@@ -163,6 +165,7 @@ const GoalCard = ({
   onDelete: () => void;
   isDark: boolean;
 }) => {
+  const { mask } = usePrivacy();
   const pct = Math.min(goal.progress ?? 0, 100);
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
@@ -235,10 +238,10 @@ const GoalCard = ({
 
           <View style={styles.goalBottom}>
             <Text style={[styles.progressAmt, { color: textSec }]}>
-              {formatCurrency(goal.currentAmount)}
+              {mask(formatCurrency(goal.currentAmount))}
               <Text style={{ color: isDark ? '#475569' : '#CBD5E1' }}>
                 {' / '}
-                {formatCurrency(goal.targetAmount)}
+                {mask(formatCurrency(goal.targetAmount))}
               </Text>
             </Text>
             <View style={styles.goalTags}>
@@ -269,6 +272,7 @@ const SavingsGoalsScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const { GuideButton, GuideView } = useGuide('savings');
+  const { isHidden, toggle: togglePrivacy, mask } = usePrivacy();
 
   const textPri = isDark ? '#F1F5F9' : '#1E293B';
   const textSec = isDark ? '#94A3B8' : '#64748B';
@@ -416,12 +420,17 @@ const SavingsGoalsScreen: React.FC = () => {
       <AppHeader
         title="Savings"
         right={
-          <TouchableOpacity
-            style={[styles.statsBtn, { backgroundColor: '#22C55E12' }]}
-            onPress={() => (navigation as any).navigate(statsNavTarget)}
-          >
-            <Icon name="stats-chart-outline" size={20} color="#22C55E" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity onPress={togglePrivacy} style={{ padding: 4 }}>
+              <Icon name={isHidden ? 'eye-off-outline' : 'eye-outline'} size={18} color={textSec} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.statsBtn, { backgroundColor: '#22C55E12' }]}
+              onPress={() => (navigation as any).navigate(statsNavTarget)}
+            >
+              <Icon name="stats-chart-outline" size={20} color="#22C55E" />
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -490,13 +499,13 @@ const SavingsGoalsScreen: React.FC = () => {
             >
               <Text style={styles.heroLabel}>Total Savings</Text>
               <Text style={styles.heroAmount}>
-                {formatCurrency(totalBalance)}
+                {mask(formatCurrency(totalBalance))}
               </Text>
 
               <View style={styles.heroGrid}>
                 <View style={styles.heroGridItem}>
                   <Text style={styles.heroGridVal}>
-                    {formatCurrency(initialBalance)}
+                    {mask(formatCurrency(initialBalance))}
                   </Text>
                   <Text style={styles.heroGridLabel}>Initial</Text>
                 </View>
@@ -509,7 +518,7 @@ const SavingsGoalsScreen: React.FC = () => {
                     ]}
                   >
                     {allTimeSurplus >= 0 ? '+' : ''}
-                    {formatCurrency(allTimeSurplus)}
+                    {mask(formatCurrency(allTimeSurplus))}
                   </Text>
                   <Text style={styles.heroGridLabel}>Net Saved</Text>
                 </View>
@@ -608,7 +617,7 @@ const SavingsGoalsScreen: React.FC = () => {
                     {r.label}
                   </Text>
                   <Text style={[styles.analysisVal, { color: r.color }]}>
-                    {formatCurrency(r.val)}
+                    {mask(formatCurrency(r.val))}
                   </Text>
                 </View>
               ))}
@@ -637,7 +646,7 @@ const SavingsGoalsScreen: React.FC = () => {
                     { color: surplusColor, fontWeight: '800' },
                   ]}
                 >
-                  {formatCurrency(Math.abs(surplus))}
+                  {mask(formatCurrency(Math.abs(surplus)))}
                 </Text>
               </View>
 
@@ -654,7 +663,7 @@ const SavingsGoalsScreen: React.FC = () => {
                   Saved to Goals
                 </Text>
                 <Text style={[styles.analysisVal, { color: '#3B82F6' }]}>
-                  {formatCurrency(thisMonthSaved)}
+                  {mask(formatCurrency(thisMonthSaved))}
                 </Text>
               </View>
 
@@ -669,7 +678,7 @@ const SavingsGoalsScreen: React.FC = () => {
                   <Text style={styles.tipText}>
                     You could save{' '}
                     <Text style={{ fontWeight: '800', color: '#F59E0B' }}>
-                      {formatCurrency(surplus - thisMonthSaved)}
+                      {mask(formatCurrency(surplus - thisMonthSaved))}
                     </Text>{' '}
                     more
                   </Text>
@@ -725,7 +734,7 @@ const SavingsGoalsScreen: React.FC = () => {
                             <Text
                               style={[styles.historySmall, { color: textSec }]}
                             >
-                              {formatCurrency(item.income)}
+                              {mask(formatCurrency(item.income))}
                             </Text>
                             <Icon
                               name="arrow-down"
@@ -736,7 +745,7 @@ const SavingsGoalsScreen: React.FC = () => {
                             <Text
                               style={[styles.historySmall, { color: textSec }]}
                             >
-                              {formatCurrency(item.expenses)}
+                              {mask(formatCurrency(item.expenses))}
                             </Text>
                           </View>
                           <View
@@ -766,7 +775,7 @@ const SavingsGoalsScreen: React.FC = () => {
                             style={[styles.historySaved, { color: savedColor }]}
                           >
                             {isPos ? '+' : ''}
-                            {formatCurrency(item.saved)}
+                            {mask(formatCurrency(item.saved))}
                           </Text>
                           <Text
                             style={[
@@ -774,7 +783,7 @@ const SavingsGoalsScreen: React.FC = () => {
                               { color: isDark ? '#475569' : '#CBD5E1' },
                             ]}
                           >
-                            {formatCurrency(item.cumulativeBalance)}
+                            {mask(formatCurrency(item.cumulativeBalance))}
                           </Text>
                         </View>
                       </View>
@@ -829,19 +838,19 @@ const SavingsGoalsScreen: React.FC = () => {
                   <View style={[styles.invOverviewCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
                     <Text style={[styles.invOverviewLabel, { color: textSec }]}>Invested</Text>
                     <Text style={[styles.invOverviewVal, { color: colors.primary }]}>
-                      {formatCurrency(invStats.totalInvested)}
+                      {mask(formatCurrency(invStats.totalInvested))}
                     </Text>
                   </View>
                   <View style={[styles.invOverviewCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
                     <Text style={[styles.invOverviewLabel, { color: textSec }]}>Maturity</Text>
                     <Text style={[styles.invOverviewVal, { color: textPri }]}>
-                      {formatCurrency(invStats.totalMaturityValue)}
+                      {mask(formatCurrency(invStats.totalMaturityValue))}
                     </Text>
                   </View>
                   <View style={[styles.invOverviewCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
                     <Text style={[styles.invOverviewLabel, { color: textSec }]}>Profit</Text>
                     <Text style={[styles.invOverviewVal, { color: '#22C55E' }]}>
-                      +{formatCurrency(invStats.expectedProfit)}
+                      +{mask(formatCurrency(invStats.expectedProfit))}
                     </Text>
                   </View>
                   <View style={[styles.invOverviewCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
@@ -1089,8 +1098,8 @@ const SavingsGoalsScreen: React.FC = () => {
                   <Text
                     style={[styles.contribProgressText, { color: textSec }]}
                   >
-                    {formatCurrency(contribGoal.currentAmount)} /{' '}
-                    {formatCurrency(contribGoal.targetAmount)}
+                    {mask(formatCurrency(contribGoal.currentAmount))} /{' '}
+                    {mask(formatCurrency(contribGoal.targetAmount))}
                   </Text>
                   <View
                     style={[

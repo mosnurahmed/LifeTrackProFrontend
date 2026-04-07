@@ -21,6 +21,7 @@ import { useIncomes, useDeleteIncome, useIncomeStats } from '../../../hooks/api/
 import { EmptyState, ErrorState, AppHeader, useConfirm, useGuide } from '../../../components/common';
 import { ExpenseListSkeleton } from '../../../components/common/Loading/ScreenSkeletons';
 import { formatCurrency } from '../../../utils/formatters';
+import { usePrivacy } from '../../../store/privacyStore';
 
 const MONTH_NAMES = [
   'January','February','March','April','May','June',
@@ -54,6 +55,7 @@ const IncomeScreen: React.FC = () => {
   const { colors, textStyles, spacing, borderRadius, shadows } = useTheme();
   const { confirm } = useConfirm();
   const { GuideButton, GuideView } = useGuide('income');
+  const { isHidden, toggle: togglePrivacy, mask } = usePrivacy();
 
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
@@ -148,7 +150,7 @@ const IncomeScreen: React.FC = () => {
   const renderSectionHeader = ({ section }: any) => (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionDate}>{section.title}</Text>
-      <Text style={styles.sectionTotal}>{formatCurrency(section.total)}</Text>
+      <Text style={styles.sectionTotal}>{mask(formatCurrency(section.total))}</Text>
     </View>
   );
 
@@ -177,7 +179,7 @@ const IncomeScreen: React.FC = () => {
         </View>
 
         <Text style={[styles.itemAmount, { color: categoryColor }]}>
-          +{formatCurrency(item.amount)}
+          +{mask(formatCurrency(item.amount))}
         </Text>
       </TouchableOpacity>
     );
@@ -198,7 +200,7 @@ const IncomeScreen: React.FC = () => {
           </TouchableOpacity>
           <View style={styles.monthInfo}>
             <Text style={styles.monthName}>{MONTH_NAMES[selectedMonth]} {selectedYear}</Text>
-            <Text style={styles.monthTotal}>{formatCurrency(monthTotal)}</Text>
+            <Text style={styles.monthTotal}>{mask(formatCurrency(monthTotal))}</Text>
             <Text style={styles.monthSubtext}>
               {incomes.length} income entr{incomes.length !== 1 ? 'ies' : 'y'}
             </Text>
@@ -215,12 +217,12 @@ const IncomeScreen: React.FC = () => {
         {stats && (
           <View style={styles.miniStats}>
             <View style={styles.miniStat}>
-              <Text style={styles.miniStatVal}>{formatCurrency(stats.thisMonth?.total || 0)}</Text>
+              <Text style={styles.miniStatVal}>{mask(formatCurrency(stats.thisMonth?.total || 0))}</Text>
               <Text style={styles.miniStatLabel}>This Month</Text>
             </View>
             <View style={styles.miniDivider} />
             <View style={styles.miniStat}>
-              <Text style={styles.miniStatVal}>{formatCurrency(stats.lastMonth?.total || 0)}</Text>
+              <Text style={styles.miniStatVal}>{mask(formatCurrency(stats.lastMonth?.total || 0))}</Text>
               <Text style={styles.miniStatLabel}>Last Month</Text>
             </View>
             <View style={styles.miniDivider} />
@@ -294,6 +296,9 @@ const IncomeScreen: React.FC = () => {
         showDrawer
         right={
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity onPress={togglePrivacy} style={{ padding: 4 }}>
+              <Icon name={isHidden ? 'eye-off-outline' : 'eye-outline'} size={18} color={colors.text.secondary} />
+            </TouchableOpacity>
             <GuideButton color={colors.text.primary} />
             <TouchableOpacity
               style={styles.statsBtn}
