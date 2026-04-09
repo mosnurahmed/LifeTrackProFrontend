@@ -22,6 +22,8 @@ import {
   useDailyExpenses,
 } from '../../../hooks/api/useExpenses';
 import { Spinner, ErrorState, useGuide } from '../../../components/common';
+import { useExpenseByMethod } from '../../../hooks/api/useTransfers';
+import Svg, { Circle } from 'react-native-svg';
 import { formatCurrency, formatCompactNumber } from '../../../utils/formatters';
 
 const { width } = Dimensions.get('window');
@@ -33,7 +35,7 @@ const PERIODS = [
   { label: 'This Year', days: 365 },
 ];
 
-const TABS = ['Overview', 'Categories', 'Trends'] as const;
+const TABS = ['Overview', 'Categories', 'Trends', 'Payments'] as const;
 type Tab = (typeof TABS)[number];
 
 const ExpenseStatsScreen: React.FC = () => {
@@ -59,6 +61,10 @@ const ExpenseStatsScreen: React.FC = () => {
 
   const stats = statsData?.data;
   const dailyExpenses: any[] = useMemo(() => dailyData?.data || [], [dailyData]);
+
+  // Payment method breakdown
+  const now = new Date();
+  const { data: paymentMethods = [] } = useExpenseByMethod(now.getFullYear(), now.getMonth() + 1);
 
   // Period totals — use stats API for "This Month" (accurate), daily data for others
   const periodTotal = useMemo(() => {
@@ -522,6 +528,99 @@ const ExpenseStatsScreen: React.FC = () => {
                 <Text style={styles.trendStatLabel}>Transactions</Text>
               </View>
             </View>
+          </>
+        )}
+
+        {/* ───── PAYMENTS TAB ───── */}
+        {selectedTab === 'Payments' && (
+          <>
+            {(paymentMethods as any[]).length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon name="card-outline" size={48} color={colors.text.tertiary} />
+                <Text style={styles.emptyText}>No payment data this month</Text>
+              </View>
+            ) : (() => {
+              const totalSpent = (paymentMethods as any[]).reduce((s: number, m: any) => s + m.total, 0);
+              const DONUT_R = 50;
+              const DONUT_C = 2 * Math.PI * DONUT_R;
+              const METHOD_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
+                cash: { label: 'Cash', icon: 'cash-outline', color: '#22C55E' },
+                card: { label: 'Card', icon: 'card-outline', color: '#3B82F6' },
+                mobile_banking: { label: 'Mobile Banking', icon: 'phone-portrait-outline', color: '#8B5CF6' },
+                bank_transfer: { label: 'Bank Transfer', icon: 'business-outline', color: '#F59E0B' },
+              };
+
+              // Donut segments
+              let offset = 0;
+              const segments = (paymentMethods as any[]).map((m: any) => {
+                const pct = totalSpent > 0 ? m.total / totalSpent : 0;
+                const seg = { ...m, pct, offset, config: METHOD_CONFIG[m.method] || METHOD_CONFIG.cash };
+                offset += pct;
+                return seg;
+              });
+
+              return (
+                <>
+                  {/* Donut Chart */}
+                  <View style={[styles.catCard, { backgroundColor: colors.surface, borderColor: isDark ? '#334155' : '#F1F5F9' }]}>
+                    <View style={styles.catCardHeader}>
+                      <Icon name="card-outline" size={20} color={colors.primary} />
+                      <Text style={styles.catCardTitle}>Payment Methods</Text>
+                    </View>
+
+                    <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                      <View style={{ width: 120, height: 120 }}>
+                        <Svg width={120} height={120} viewBox="0 0 120 120">
+                          <Circle cx="60" cy="60" r={DONUT_R} stroke={isDark ? '#334155' : '#E2E8F0'} strokeWidth={10} fill="none" />
+                          {segments.map((seg: any, i: number) => (
+                            <Circle
+                              key={i}
+                              cx="60" cy="60" r={DONUT_R}
+                              stroke={seg.config.color}
+                              strokeWidth={10}
+                              fill="none"
+                              strokeDasharray={`${seg.pct * DONUT_C} ${DONUT_C}`}
+                              strokeDashoffset={-seg.offset * DONUT_C}
+                              strokeLinecap="round"
+                              transform="rotate(-90 60 60)"
+                            />
+                          ))}
+                        </Svg>
+                        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 16, fontWeight: '800', color: isDark ? '#F1F5F9' : '#1E293B' }}>
+                            {formatCurrency(totalSpent)}
+                          </Text>
+                          <Text style={{ fontSize: 9, color: isDark ? '#94A3B8' : '#64748B' }}>total</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Legend + Details */}
+                    {segments.map((seg: any, i: number) => {
+                      const barPct = totalSpent > 0 ? (seg.total / totalSpent) * 100 : 0;
+                      return (
+                        <View key={i} style={{ marginBottom: i < segments.length - 1 ? 12 : 0 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: `${seg.config.color}15`, justifyContent: 'center', alignItems: 'center' }}>
+                              <Icon name={seg.config.icon} size={14} color={seg.config.color} />
+                            </View>
+                            <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: isDark ? '#F1F5F9' : '#1E293B' }}>{seg.config.label}</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: isDark ? '#F1F5F9' : '#1E293B' }}>{formatCurrency(seg.total)}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 36 }}>
+                            <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: `${seg.config.color}15`, overflow: 'hidden' }}>
+                              <View style={{ height: '100%', width: `${barPct}%`, borderRadius: 2, backgroundColor: seg.config.color }} />
+                            </View>
+                            <Text style={{ fontSize: 11, fontWeight: '600', color: seg.config.color, width: 35 }}>{barPct.toFixed(0)}%</Text>
+                          </View>
+                          <Text style={{ fontSize: 10, color: isDark ? '#475569' : '#94A3B8', paddingLeft: 36, marginTop: 2 }}>{seg.count} transaction{seg.count !== 1 ? 's' : ''}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </>
+              );
+            })()}
           </>
         )}
 

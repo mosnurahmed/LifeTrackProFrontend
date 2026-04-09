@@ -161,6 +161,7 @@ const DashboardScreen: React.FC = () => {
       nav: 'Savings',
     },
     { icon: 'receipt-outline', label: 'Loans', color: '#F97316', nav: 'Loans' },
+    { icon: 'swap-horizontal-outline', label: 'Transfer', color: '#06B6D4', nav: 'Transfers' },
     {
       icon: 'checkmark-circle-outline',
       label: 'Tasks',

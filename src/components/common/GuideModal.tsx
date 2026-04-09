@@ -402,6 +402,17 @@ export const GUIDES: Record<string, { title: string; subtitle: string; steps: Gu
     ],
   },
 
+  transfers: {
+    title: 'Fund Transfers',
+    subtitle: 'Move money between payment methods',
+    steps: [
+      { icon: 'swap-horizontal-outline', title: 'Transfer Funds', description: 'Move money between Cash, Card, Mobile Banking, or Bank. This is NOT an expense — just moving your own money from one place to another.', color: '#10B981' },
+      { icon: 'wallet-outline', title: 'Wallet Balances', description: 'See how much money you have in each payment method. Balance = Income received - Expenses spent + Transfers in - Transfers out.', color: '#3B82F6' },
+      { icon: 'cash-outline', title: 'Example', description: 'You withdrew ৳5,000 from Card to Cash? Create a transfer: Card → Cash ৳5,000. Your total savings stays the same, but Cash goes up and Card goes down.', color: '#F59E0B' },
+      { icon: 'trash-outline', title: 'Delete', description: 'Long press any transfer to delete it. The balances will auto-update.', color: '#EF4444' },
+    ],
+  },
+
   loans: {
     title: 'Loans',
     subtitle: 'Track money lent and borrowed',

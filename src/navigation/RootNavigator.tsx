@@ -31,6 +31,7 @@ import NotificationsScreen from '../features/profile/screens/NotificationsScreen
 import NotificationsListScreen from '../features/notifications/screens/NotificationsListScreen';
 import EditProfileScreen from '../features/profile/screens/EditProfileScreen';
 import ChangePasswordScreen from '../features/profile/screens/ChangePasswordScreen';
+import TransferScreen from '../features/transfers/screens/TransferScreen';
 import LoansScreen from '../features/loans/screens/LoansScreen';
 import AddLoanModal from '../features/loans/screens/AddLoanModal';
 import LoanDetailsScreen from '../features/loans/screens/LoanDetailsScreen';
@@ -205,6 +206,11 @@ const RootNavigator: React.FC = () => {
               <Stack.Screen
                 name="Loans"
                 component={LoansScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="Transfers"
+                component={TransferScreen}
                 options={{ headerShown: false }}
               />
               <Stack.Screen
